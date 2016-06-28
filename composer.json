@@ -1,5 +1,5 @@
 {
-    "name": "nosql-adapter",
+    "name": "nosql/adapter",
     "version":"0.1",
     "description": "sql nosql的使用",
     "require": {
