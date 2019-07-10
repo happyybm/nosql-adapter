@@ -505,6 +505,7 @@ class DynamoDb extends AbstractDb
      *         "Count"=>1,//返回的数据条目
      *         "ScannedCount"=>1,//扫描的条数，用于判断查询的效率及优化，但ScannedCount跟Count差距很大时，说明效率低下。
      *         )
+     * @throws Exception
      */
     private function query($params)
     {
@@ -521,6 +522,7 @@ class DynamoDb extends AbstractDb
                 "ScannedCount" => $rs->get ( "ScannedCount" ) 
             );
         } else {
+            var_dump($metadta);
             return false;
         }
     }

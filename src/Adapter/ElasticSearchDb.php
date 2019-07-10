@@ -9,6 +9,7 @@ use Elasticsearch\ClientBuilder;
 use Elasticsearch\Client;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
+use Nosql\DbException;
 
 /**
  * ElasticSearch适配器
@@ -45,19 +46,21 @@ class ElasticSearchDb extends AbstractDb
             $builder = ClientBuilder::create ();
             $hosts = [ 
                 [ 
-                    'host' => $this->_config ["host"],
-                    'port' => $this->_config ["port"] 
+                    'host' => $this->config ["host"],
+                    'port' => $this->config ["port"] 
                 ] 
             ];
             $builder->setHosts ( $hosts );
             
-            $builder->setRetries ( isset ( $this->_config ["retries"] ) ? $this->_config ["retries"] : 2 );
-            if (isset ( $this->_config ["logfile"] )) {
+            $builder->setRetries ( isset ( $this->config ["retries"] ) ? $this->config ["retries"] : 2 );
+            if (isset ( $this->config ["logfile"] )) {
                 $logger = new Logger ( 'elasticsearch' );
-                $logger->pushHandler ( new StreamHandler ( $this->_config ["logfile"], Logger::WARNING ) );
+                $logger->pushHandler ( new StreamHandler ( $this->config ["logfile"], Logger::WARNING ) );
                 $builder->setLogger ( $logger );
             }
             $this->client = $builder->build ();
+        }else{
+            throw new DbException("配置错误");
         }
     }
 
@@ -68,10 +71,10 @@ class ElasticSearchDb extends AbstractDb
      */
     private function checkRequiredConfig()
     {
-        if (! key_exists ( "host", $this->_config )) {
+        if (! key_exists ( "host", $this->config )) {
             return false;
         }
-        if (! key_exists ( "port", $this->_config )) {
+        if (! key_exists ( "port", $this->config )) {
             return false;
         }
         return true;
@@ -180,6 +183,7 @@ class ElasticSearchDb extends AbstractDb
      */
     private function deleteItem($indexName, $keyValues)
     {
+        $this->connect ();
         foreach ($keyValues as $keyValue){
             $params = [
                 'index' => $indexName,
@@ -201,6 +205,7 @@ class ElasticSearchDb extends AbstractDb
      */
     private function getItem($indexName, $keyValue)
     {
+        $this->connect ();
         $params = [
             'index' => $indexName,
             'id'    => $keyValue
@@ -220,6 +225,7 @@ class ElasticSearchDb extends AbstractDb
      */
     private function putItem($indexName, $data)
     {
+        $this->connect ();
         $params = [
             'index' => $indexName,
             'body'  => $data
@@ -234,6 +240,7 @@ class ElasticSearchDb extends AbstractDb
      */
     private function search($params)
     {
+        $this->connect ();
         return $this->client->search($params);
     }
 
@@ -248,6 +255,7 @@ class ElasticSearchDb extends AbstractDb
      */
     private function updateItem($indexName, $data, $keys)
     {
+        $this->connect ();
         foreach ($keys as $key){
             $params = [
                 'index' => $indexName,
@@ -294,4 +302,26 @@ class ElasticSearchDb extends AbstractDb
         }
         return $cond;
     }
+    /**
+     * {@inheritDoc}
+     * @see \Nosql\Adapter\AbstractDb::batchSave()
+     */
+    public function batchSave($tableName, $items)
+    {
+        $this->connect ();
+        // TODO Auto-generated method stub
+        
+    }
+
+    /**
+     * {@inheritDoc}
+     * @see \Nosql\Adapter\AbstractDb::batchDelete()
+     */
+    public function batchDelete($tableName, $ids)
+    {
+        $this->connect ();
+        // TODO Auto-generated method stub
+        
+    }
+
 }

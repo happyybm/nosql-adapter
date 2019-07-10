@@ -22,8 +22,13 @@ abstract class Select
     const OP_LIKE = "LIKE";
     const OP_IS_NULL = "IS NULL";
     const OP_IS_NOT_NULL = "IS NOT NULL";
-    const OP_BETWEEN = "BETWEEN";
+//     const OP_BETWEEN = "BETWEEN"; //暂不支持，
     
+    /**
+     * 合并后的查询条件
+     * @var array
+     */
+    protected  $query =[];
     /**
      * and条件
      * 
@@ -62,19 +67,18 @@ abstract class Select
      * @var array
      */
     protected $subOrCond = array ();
+    /**
+     * 拆分后的过滤条件数组
+     * @var array
+     */
+    protected $FilterExpression = [];
+    /**
+     * 同FilterExpression，只是是嵌套的
+     * 
+     * @var array
+     */
+    protected $SubFilterExpression = [ ];
     
-    /**
-     * 拆分后的最小查询单元语句
-     * 
-     * @var array
-     */
-    protected $filter = [ ];
-    /**
-     * 同filter，只是是嵌套的
-     * 
-     * @var array
-     */
-    protected $subfilter = [ ];
     
     /**
      * 错误信息记录
@@ -278,10 +282,12 @@ abstract class Select
      *            例：array("p1"=>"sdfsdfsd","p2"=>"sdfsdfsdf")
      * @return Select
      */
-    public function where($cond, $bind)
+    public function where($cond, $bind=null)
     {
         $this->ands [] = $cond;
-        $this->binds = array_merge ( $this->binds, $bind );
+        if(!empty($bind)){
+            $this->binds = array_merge ( $this->binds, $bind );
+        }
         return $this;
     }
 
@@ -394,16 +400,20 @@ abstract class Select
      */
     public function getQuery()
     {
+        if(!empty($this->query)){
+            return $this->query;
+        }
         if ($this->checkCond ()) {
-            return $this->assemble ();
+            $this->query =  $this->assemble ();
+            return $this->query;
         } else {
             throw new DbException ( $this->errors );
         }
     }
-
+    
     /**
      * 按优先级拆分查询语句,嵌套的or操作只能filter处理
-     * 
+     *
      * @param string $expression
      *            语句
      * @param string $cond
@@ -412,7 +422,7 @@ abstract class Select
      *            嵌套查询索引,-1表示非嵌套查询
      * @return array 单个语句的数组组合
      */
-    protected function explorCond($expression, $cond = self::COND_AND, $subIndex = -1)
+    protected function explorCond($expression, $cond = self::COND_AND,$subIndex = -1)
     {
         $expression = trim ( $expression );
         if ($expression) {
@@ -423,72 +433,81 @@ abstract class Select
             }
             $strupper = strtoupper ( $expression );
             $opPreg = array (
-                preg_quote ( self::OP_BETWEEN ),
-                preg_quote ( self::OP_EQ ),
-                preg_quote ( self::OP_GT ),
-                preg_quote ( self::OP_GTEQ ),
-                preg_quote ( self::OP_IS_NOT_NULL ),
-                preg_quote ( self::OP_IS_NULL ),
-                preg_quote ( self::OP_LIKE ),
-                preg_quote ( self::OP_LT ),
-                preg_quote ( self::OP_LTEQ ),
-                preg_quote ( self::OP_NEQ ) 
+                self::OP_EQ,
+                self::OP_GT,
+                self::OP_GTEQ,
+                self::OP_IS_NOT_NULL,
+                self::OP_IS_NULL,
+                self::OP_LIKE,
+                self::OP_LT,
+                self::OP_LTEQ,
+                self::OP_NEQ
             );
-            $opPreg = "(" . join ( ")(", $opPreg ) . ")";
+            $opPreg = "(" . join ( ")|(", $opPreg ) . ")";
             // 按优先级，按and先分
             if (strpos ( $strupper, " " . self::COND_AND . " " ) > 0) {
                 $pos = strpos ( $strupper, " " . self::COND_AND . " " );
                 $left = substr ( $expression, 0, $pos );
-                $this->explorCond ( $left, self::COND_AND, $subIndex );
+                $this->explorCond ( $left, self::COND_AND,$subIndex );
                 $right = substr ( $expression, $pos + 4 );
-                $this->explorCond ( $right, self::COND_AND, $subIndex );
+                $this->explorCond ( $right, self::COND_AND,$subIndex );
             } elseif (strpos ( $strupper, " " . self::COND_OR . " " ) > 0) {
                 $pos = strpos ( $strupper, " " . self::COND_OR . " " );
                 $left = substr ( $expression, 0, $pos );
-                $this->explorCond ( $left, self::COND_OR, $subIndex );
+                $this->explorCond ( $left, self::COND_OR,$subIndex );
                 $right = substr ( $expression, $pos + 3 );
-                $this->explorCond ( $right, self::COND_OR, $subIndex );
-            } elseif (preg_match ( "/^(?<field>[\w\d_]+)(?<op>[" . $opPreg . "]):(?<val>[\w\d_]+):$/i", $expression, $match )) {
+                $this->explorCond ( $right, self::COND_OR,$subIndex );
+            } elseif (preg_match ( "/^(?<field>[\w\d_]+)\s*(?<op>" . $opPreg . ")\s*(?<val>:?[\w\d_]+:)?$/i", $expression, $match )) {
                 if ($cond == self::COND_OR) {
-                    if ($subIndex >= 0) {
-                        $this->subOrCond [$subIndex] [] = array (
+                    if($subIndex>=0){
+                        $this->subOrCond[$subIndex] [] = array (
                             "Field" => $match ["field"],
                             "Op" => $match ["op"],
-                            "Value" => $match ["val"] 
+                            "Value" => isset ( $match ["val"] ) ? trim($match ["val"],":") : ''
                         );
-                    } else {
+                    }else{
                         $this->orCond [] = array (
                             "Field" => $match ["field"],
                             "Op" => $match ["op"],
-                            "Value" => $match ["val"] 
+                            "Value" => isset ( $match ["val"] ) ? trim($match ["val"],":") : ''
                         );
                     }
                 } elseif ($cond == self::COND_AND) {
-                    if ($subIndex >= 0) {
-                        $this->subAndCond [$subIndex] [] = array (
+                    if($subIndex>=0){
+                        $this->subAndCond[$subIndex] [] = array (
                             "Field" => $match ["field"],
                             "Op" => $match ["op"],
-                            "Value" => $match ["val"] 
+                            "Value" => isset ( $match ["val"] ) ? trim($match ["val"],":") : ''
                         );
-                    } else {
+                    }else{
                         $this->andCond [] = array (
                             "Field" => $match ["field"],
                             "Op" => $match ["op"],
-                            "Value" => $match ["val"] 
+                            "Value" => isset ( $match ["val"] ) ? trim($match ["val"],":") : ''
                         );
                     }
                 }
                 return;
             } else {
-                // 放入filter
-                if ($subIndex >= 0) {
-                    $this->subfilter [$subIndex] [] = $expression;
-                } else {
-                    $this->filter [] = $expression;
+                if($subIndex>=0){
+                    // 放入filter
+                    if (! empty ( $this->FilterExpression )) {
+                        $this->SubFilterExpression[$subIndex][]= " " . $cond . " " . $expression;
+                    } else {
+                        $this->SubFilterExpression[$subIndex][] = $expression;
+                    }
+                }else{
+                    // 放入filter
+                    if (! empty ( $this->FilterExpression )) {
+                        $this->FilterExpression []= " " . $cond . " " . $expression;
+                    } else {
+                        $this->FilterExpression[] = $expression;
+                    }
                 }
             }
         } else {
             throw new DbException ( "invalie condition" );
         }
     }
+
 }
