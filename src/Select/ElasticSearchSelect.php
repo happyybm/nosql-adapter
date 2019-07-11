@@ -8,44 +8,35 @@ class ElasticSearchSelect extends Select
 {
     /**
      * 多个索引同时搜索
+     *
      * @var array
      */
-    private $indexs = [];
-    
-    private $rangeAnd=[];
-
-    /**
-     * 模糊匹配查询
-     */
-    private $wildcardAnd=[];
-    private $wildcardOr=[];
-    
-    private $subWildcardAnd=[];
-    private $subWildcardOr=[];
+    private $indexs = [ ];
     
     /**
      * 精确查询
+     *
      * @var array
      */
-    private $termQueryAnd=[];
-    private $termQueryOr=[];
+    private $termQueryAnd = [ ];
+    private $termQueryOr = [ ];
     
     /**
-     * 嵌套精确查询
+     * 嵌套查询
+     *
      * @var array
      */
-    private $subTermQueryAnd=[];
-    private $subTermQueryOr=[];
-    
-    
+    private $subTermQueryAnd = [ ];
+    private $subTermQueryOr = [ ];
+
     /*
      * (non-PHPdoc)
      * @see \Duomai\Db\Select\Select::from()
      */
     public function from($indexName)
     {
-        if(!in_array($indexName, $this->indexs)){
-            $this->indexs[] = $indexName;
+        if (! in_array ( $indexName, $this->indexs )) {
+            $this->indexs [] = $indexName;
         }
         return $this;
     }
@@ -64,67 +55,80 @@ class ElasticSearchSelect extends Select
         }
         // 分析逻辑处理
         foreach ( $this->andCond as $cond ) {
-            $this->processAndCond($cond, $this->termQueryAnd);
+            $this->processAndCond ( $cond, $this->termQueryAnd );
         }
         foreach ( $this->orCond as $cond ) {
-            $this->processOrCond($cond, $this->termQueryOr);
+            $this->processOrCond ( $cond, $this->termQueryOr );
         }
-        $subAndConds = [];
-        foreach ($this->subAndCond as $idx=>$subConds){
-            $tmpCond = [];
-            foreach ($subConds as $cond){
-                $this->processAndCond($cond, $tmpCond);
+        $subAndConds = [ ];
+        $subOrConds = [ ];
+        foreach ( $this->subAndCond as $idx => $subConds ) {
+            $tmpCond = [ ];
+            foreach ( $subConds as $cond ) {
+                $this->processAndCond ( $cond, $tmpCond );
             }
-            if(!empty($tmpCond)){
-                $subAndConds[] = $tmpCond;
+            if (! empty ( $tmpCond )) {
+                $subAndConds [] = $tmpCond;
             }
         }
-        $subOrConds = [];
-        foreach ($this->subOrCond as $idx=>$subConds){
-            $tmpCond = [];
-            foreach ($subConds as $cond){
-                $this->processOrCond($cond, $tmpCond);
+        foreach ( $this->subOrCond as $idx => $subConds ) {
+            $tmpCond = [ ];
+            foreach ( $subConds as $cond ) {
+                $this->processOrCond ( $cond, $tmpCond );
             }
-            if(!empty($tmpCond)){
-                $subOrConds[] = $tmpCond;
+            if (! empty ( $tmpCond )) {
+                $tmpCond ["minimum_should_match"] = 1;
+                $subOrConds [] = $tmpCond;
             }
         }
         
-        if(!empty($subAndConds)){
-            //嵌套的and操作。也是and操作
-            foreach ($subAndConds as $type=>$conds){
-                if(isset($this->termQueryAnd[$type])){
-                    $this->termQueryAnd[$type] = array_merge($this->termQueryAnd[$type],$conds);
-                }else{
-                    $this->termQueryAnd[$type] = $conds;
+        if (! empty ( $subAndConds )) {
+            // 嵌套的and操作。也是and操作
+            foreach ( $subAndConds as $ids => $conds ) {
+                foreach ($conds as $type=>$cond){
+                    if (isset ( $this->termQueryAnd [$type] )) {
+                        $this->termQueryAnd [$type] = array_merge ( $this->termQueryAnd [$type], $cond );
+                    } else {
+                        $this->termQueryAnd [$type] = $conds;
+                    }
                 }
             }
         }
-        if(!empty($subOrConds)){
-            //嵌套的or操作，放terms里
-            //TODO
+        if (! empty ( $subOrConds )) {
+            // 嵌套的or操作，放must下面的term的bool=>should里
+            foreach ($subOrConds as $idx=>$conds){
+                $this->termQueryAnd ["must"][]=[
+                    "bool"=>$conds
+                ];
+            }
         }
         
         // 设置表名
         $params = array (
-            "index" => join(",", $this->indexs)
+            "index" => join ( ",", $this->indexs ) 
         );
         // 设置参数
-        if (!empty($this->termQueryAnd)){
-            $params["body"]["query"]["bool"]=$this->termQueryAnd;
+        if (! empty ( $this->termQueryAnd )) {
+            $params ["body"] ["query"] ["bool"] = $this->termQueryAnd;
         }
-        if (!empty($this->termQueryOr)){
-            //TODO
+        if (! empty ( $this->termQueryOr )) {
+            // 放should里
+            $params ["body"] ["query"] ["bool"] ["should"] = $this->termQueryOr ["should"];
+            $params ["body"] ["query"] ["bool"] ["minimum_should_match"] = 1;
         }
         // 设置排序
         if (! empty ( $this->orders )) {
-            foreach ($this->orders as $field=>$sort){
-                $params["sort"][]=[$field=>["order"=>strtolower($sort)]];
+            foreach ( $this->orders as $field => $sort ) {
+                $params ["sort"] [] = [ 
+                    $field => [ 
+                        "order" => strtolower ( $sort ) 
+                    ] 
+                ];
             }
         }
         // 设置返回属性
-        if (! empty ( $this->colums )&&$this->colums!="*") {
-            $params["_source"] = explode(",", $this->colums);
+        if (! empty ( $this->colums ) && $this->colums != "*") {
+            $params ["_source"] = explode ( ",", $this->colums );
         }
         // 设置启始记录
         if ($this->skip > 0) {
@@ -137,102 +141,215 @@ class ElasticSearchSelect extends Select
         $result ["Params"] = $params;
         return $result;
     }
-    
+
     /**
      * 转批条件
-     * @param array $cond 查询条件
-     * @param array $resultArr 存放条件的数组
+     *
+     * @param array $cond
+     *            查询条件
+     * @param array $resultArr
+     *            存放条件的数组
      */
-    private  function processAndCond($cond,&$resultArr){
+    private function processAndCond($cond, &$resultArr)
+    {
         $field = $cond ["Field"];
-        if(isset($this->binds[$cond["Value"]])){
-            $value = $this->binds[$cond["Value"]];
-        }else{
-            $value="";
+        if (isset ( $this->binds [$cond ["Value"]] )) {
+            $value = $this->binds [$cond ["Value"]];
+        } else {
+            $value = "";
         }
-        switch (strtoupper($cond["Op"])){
-            case self::OP_EQ:
-                $resultArr["must"][]=["term"=>[$field=>$value]];
+        switch (strtoupper ( $cond ["Op"] )) {
+            case self::OP_EQ :
+                $resultArr ["must"] [] = [ 
+                    "term" => [ 
+                        $field => $value 
+                    ] 
+                ];
                 break;
-            case self::OP_NEQ:
-                $resultArr["must_not"][]=["term"=>[$field=>$value]];
+            case self::OP_NEQ :
+                $resultArr ["must_not"] [] = [ 
+                    "term" => [ 
+                        $field => $value 
+                    ] 
+                ];
                 break;
-            case self::OP_GT:
-                $resultArr["must"][]=["range"=>[$field=>["gt"=>$value]]];
+            case self::OP_GT :
+                $resultArr ["must"] [] = [ 
+                    "range" => [ 
+                        $field => [ 
+                            "gt" => $value 
+                        ] 
+                    ] 
+                ];
                 break;
-            case self::OP_LT:
-                $resultArr["must"][]=["range"=>[$field=>["lt"=>$value]]];
+            case self::OP_LT :
+                $resultArr ["must"] [] = [ 
+                    "range" => [ 
+                        $field => [ 
+                            "lt" => $value 
+                        ] 
+                    ] 
+                ];
                 break;
-            case self::OP_GTEQ:
-                $resultArr["must"][]=["range"=>[$field=>["gte"=>$value]]];
+            case self::OP_GTEQ :
+                $resultArr ["must"] [] = [ 
+                    "range" => [ 
+                        $field => [ 
+                            "gte" => $value 
+                        ] 
+                    ] 
+                ];
                 break;
-            case self::OP_LTEQ:
-                $resultArr["must"][]=["range"=>[$field=>["lte"=>$value]]];
+            case self::OP_LTEQ :
+                $resultArr ["must"] [] = [ 
+                    "range" => [ 
+                        $field => [ 
+                            "lte" => $value 
+                        ] 
+                    ] 
+                ];
                 break;
-            case self::OP_IS_NOT_NULL:
-                $resultArr["must"][]=["exists"=>["field"=>$field]];
+            case self::OP_IS_NOT_NULL :
+                $resultArr ["must"] [] = [ 
+                    "exists" => [ 
+                        "field" => $field 
+                    ] 
+                ];
                 break;
-            case self::OP_IS_NULL:
-                $resultArr["must_not"][]=["exists"=>["field"=>$field]];
+            case self::OP_IS_NULL :
+                $resultArr ["must_not"] [] = [ 
+                    "exists" => [ 
+                        "field" => $field 
+                    ] 
+                ];
                 break;
-            case self::OP_LIKE:
-                if(preg_match("/%/", $value)){
-                    $value = str_replace("%", "*", $value);
-                    $resultArr["must"][]=["wildcard"=>[$field=>$value]];
-                }else{
-                    $resultArr["must"][]=["term"=>[$field=>$value]];
+            case self::OP_LIKE :
+                if (preg_match ( "/%/", $value )) {
+                    $value = str_replace ( "%", "*", $value );
+                    $resultArr ["must"] [] = [ 
+                        "wildcard" => [ 
+                            $field => $value 
+                        ] 
+                    ];
+                } else {
+                    $resultArr ["must"] [] = [ 
+                        "term" => [ 
+                            $field => $value 
+                        ] 
+                    ];
                 }
                 break;
         }
     }
+
     /**
      * 转批条件
-     * @param array $cond 查询条件
-     * @param array $resultArr 存放条件的数组
+     *
+     * @param array $cond
+     *            查询条件
+     * @param array $resultArr
+     *            存放条件的数组
      */
-    private  function processOrCond($cond,&$resultArr){
+    private function processOrCond($cond, &$resultArr)
+    {
         $field = $cond ["Field"];
-        if(isset($this->binds[$cond["Value"]])){
-            $value = $this->binds[$cond["Value"]];
-        }else{
-            $value="";
+        if (isset ( $this->binds [$cond ["Value"]] )) {
+            $value = $this->binds [$cond ["Value"]];
+        } else {
+            $value = "";
         }
-        switch (strtoupper($cond["Op"])){
-            case self::OP_EQ:
-                $resultArr["must"][]=["term"=>[$field=>$value]];
+        switch (strtoupper ( $cond ["Op"] )) {
+            case self::OP_EQ :
+                $resultArr ["should"] [] = [ 
+                    "term" => [ 
+                        $field => $value 
+                    ] 
+                ];
                 break;
-            case self::OP_NEQ:
-                $resultArr["must_not"][]=["term"=>[$field=>$value]];
+            case self::OP_NEQ :
+                $resultArr ["should"] [] = [ 
+                    "bool" => [ 
+                        "must_not" => [ 
+                            "term" => [ 
+                                $field => $value 
+                            ] 
+                        ] 
+                    ] 
+                ];
                 break;
-            case self::OP_GT:
-                $resultArr["must"][]=["range"=>[$field=>["gt"=>$value]]];
+            case self::OP_GT :
+                $resultArr ["should"] [] = [ 
+                    "range" => [ 
+                        $field => [ 
+                            "gt" => $value 
+                        ] 
+                    ] 
+                ];
                 break;
-            case self::OP_LT:
-                $resultArr["must"][]=["range"=>[$field=>["lt"=>$value]]];
+            case self::OP_LT :
+                $resultArr ["should"] [] = [ 
+                    "range" => [ 
+                        $field => [ 
+                            "lt" => $value 
+                        ] 
+                    ] 
+                ];
                 break;
-            case self::OP_GTEQ:
-                $resultArr["must"][]=["range"=>[$field=>["gte"=>$value]]];
+            case self::OP_GTEQ :
+                $resultArr ["should"] [] = [ 
+                    "range" => [ 
+                        $field => [ 
+                            "gte" => $value 
+                        ] 
+                    ] 
+                ];
                 break;
-            case self::OP_LTEQ:
-                $resultArr["must"][]=["range"=>[$field=>["lte"=>$value]]];
+            case self::OP_LTEQ :
+                $resultArr ["should"] [] = [ 
+                    "range" => [ 
+                        $field => [ 
+                            "lte" => $value 
+                        ] 
+                    ] 
+                ];
                 break;
-            case self::OP_IS_NOT_NULL:
-                $resultArr["must"][]=["exists"=>["field"=>$field]];
+            case self::OP_IS_NOT_NULL :
+                $resultArr ["should"] [] = [ 
+                    "exists" => [ 
+                        "field" => $field 
+                    ] 
+                ];
                 break;
-            case self::OP_IS_NULL:
-                $resultArr["must_not"][]=["exists"=>["field"=>$field]];
+            case self::OP_IS_NULL :
+                $resultArr ["should"][] = [ 
+                    "bool" => [ 
+                        "must_not" => [ 
+                            "exists" => [ 
+                                "field" => $field 
+                            ] 
+                        ] 
+                    ] 
+                ];
                 break;
-            case self::OP_LIKE:
-                if(preg_match("/%/", $value)){
-                    $value = str_replace("%", "*", $value);
-                    $resultArr["must"][]=["wildcard"=>[$field=>$value]];
-                }else{
-                    $resultArr["must"][]=["term"=>[$field=>$value]];
+            case self::OP_LIKE :
+                if (preg_match ( "/%/", $value )) {
+                    $value = str_replace ( "%", "*", $value );
+                    $resultArr ["should"] [] = [ 
+                        "wildcard" => [ 
+                            $field => $value 
+                        ] 
+                    ];
+                } else {
+                    $resultArr ["should"] [] = [ 
+                        "term" => [ 
+                            $field => $value 
+                        ] 
+                    ];
                 }
                 break;
         }
     }
-    
+
     /**
      * 转化条件操作
      *
@@ -248,13 +365,17 @@ class ElasticSearchSelect extends Select
     {
         switch (strtoupper ( $op )) {
             case self::OP_LIKE :
-                //模糊匹配的
+                // 模糊匹配的
                 if (preg_match ( "/%/i", $value )) {
-                    $value = str_replace("%", "*", $value);
-                    $this->wildcard[]=[$field=>$value];
+                    $value = str_replace ( "%", "*", $value );
+                    $this->wildcard [] = [ 
+                        $field => $value 
+                    ];
                 } else {
-                    //精确查询
-                    $this->matchQuery[] = [$field=>$value];
+                    // 精确查询
+                    $this->matchQuery [] = [ 
+                        $field => $value 
+                    ];
                 }
                 break;
             case self::OP_IS_NULL :
@@ -263,16 +384,19 @@ class ElasticSearchSelect extends Select
             case self::OP_IS_NOT_NULL :
                 return " attribute_exists(" . $field . ")";
                 break;
-            case self::OP_EQ:
-                $this->matchQuery[] = [$field=>$value];
+            case self::OP_EQ :
+                $this->matchQuery [] = [ 
+                    $field => $value 
+                ];
                 break;
-            case self::OP_NEQ:
-                $this->matchQuery[] = [$field=>$value];
+            case self::OP_NEQ :
+                $this->matchQuery [] = [ 
+                    $field => $value 
+                ];
             default :
                 return $field . " " . $op . " " . $value;
         }
     }
-    
 
     /*
      * (non-PHPdoc) @see \Duomai\Db\Select\Select::checkCond()
