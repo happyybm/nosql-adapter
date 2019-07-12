@@ -2,6 +2,7 @@
 namespace Nosql\Select;
 
 use Nosql\DbException;
+use Nosql\Select\SelectConds;
 use Nosql\Adapter\AbstractDb;
 
 /**
@@ -31,55 +32,12 @@ abstract class Select
      * @var array
      */
     protected  $query =[];
+    
     /**
-     * and条件
-     * 
-     * @var array 结构如：
-     *      array(
-     *      array(
-     *      "Field"=>"domain_name",
-     *      "Op"=>"=",
-     *      "Value"=>"dn"
-     *      ),
-     *      )
+     * 查询条件
+     * @var SelectConds
      */
-    protected $andCond = array ();
-    /**
-     * 嵌套的查询条件:如 Field=:p1: and (Field=:p2: or Field=:p3:) 中括号里的条件，最终会以and方式合并到整体的查询条件中，目前只支持一级嵌套
-     * 
-     * @var array
-     */
-    protected $subAndCond = array ();
-    /**
-     * or 条件
-     * 
-     * @var array 结构如：
-     *      array(
-     *      array(
-     *      "Field"=>"domain_name",
-     *      "Op"=>"=",
-     *      "Value"=>"dn"
-     *      ),
-     *      )
-     */
-    protected $orCond = array ();
-    /**
-     * 嵌套的查询条件:如 Field=:p1: and (Field=:p2: or Field=:p3:) 中括号里的条件，最终会以and方式合并到整体的查询条件中，目前只支持一级嵌套
-     * 
-     * @var array
-     */
-    protected $subOrCond = array ();
-    /**
-     * 拆分后的过滤条件数组
-     * @var array
-     */
-    protected $FilterExpression = [];
-    /**
-     * 同FilterExpression，只是是嵌套的
-     * 
-     * @var array
-     */
-    protected $SubFilterExpression = [ ];
+    protected  $selectConds=null;
     
     
     /**
@@ -164,6 +122,7 @@ abstract class Select
     public function __construct(AbstractDb $adapter)
     {
         $this->adapter = $adapter;
+        $this->selectConds = new SelectConds();
     }
 
     /**
@@ -287,7 +246,7 @@ abstract class Select
     public function where($cond, $bind=null)
     {
         $this->ands [] = $cond;
-        if(!empty($bind)){
+        if(!empty($bind)&&is_array($bind)){
             $this->binds = array_merge ( $this->binds, $bind );
         }
         return $this;
@@ -415,24 +374,16 @@ abstract class Select
     
     /**
      * 按优先级拆分查询语句,嵌套的or操作只能filter处理
-     *
-     * @param string $expression
-     *            语句
-     * @param string $cond
-     *            and 或or
-     * @param int $subIndex
-     *            嵌套查询索引,-1表示非嵌套查询
-     * @return array 单个语句的数组组合
+     * @param string $expression 当前级查询条件
+     * @param string $cond and 或or 父级与当前级的条件
+     * @param SelectConds $parentCond 父级查询条件
+     * @return SelectConds 生成新的查询条件
      */
-    protected function explorCond($expression, $cond = self::COND_AND,$subIndex = -1)
+    protected function explorCond($expression, $cond = self::COND_AND)
     {
+        //(a1=b1 and b2=c2)
         $expression = trim ( $expression );
         if ($expression) {
-            if (preg_match ( "/^\((?<subExp>.*)\)$/", $expression, $match )) {
-                // 嵌套查询处理
-                $this->explorCond ( $match ["subExp"], $cond, $subIndex + 1 );
-                return;
-            }
             $strupper = strtoupper ( $expression );
             $opPreg = array (
                 self::OP_EQ,
@@ -448,69 +399,50 @@ abstract class Select
                 self::OP_NEQ
             );
             $opPreg = "(" . join ( ")|(", $opPreg ) . ")";
-            // 按优先级，按and先分
-            if (strpos ( $strupper, " " . self::COND_AND . " " ) > 0) {
+            // 按优先级，先按()拆分，再按and拆分
+            if (preg_match ( "/^\((?<subExp>[^)]*)\)\s*/i", $expression, $match )) {
+                //TODO
+//                 return $this->explorCond ( $match ["subExp"], $cond );
+                return;
+            }else if (strpos ( $strupper, " " . self::COND_AND . " " ) > 0) {
+                echo "and :".$strupper."\n";
                 $pos = strpos ( $strupper, " " . self::COND_AND . " " );
                 $left = substr ( $expression, 0, $pos );
-                $this->explorCond ( $left, self::COND_AND,$subIndex );
+                $leftCond = $this->explorCond ( $left, self::COND_AND );
+                
                 $right = substr ( $expression, $pos + 4 );
-                $this->explorCond ( $right, self::COND_AND,$subIndex );
+                $rightCond = $this->explorCond ( $right, self::COND_AND );
+                if($leftCond&&$rightCond){
+                    $leftCond->addNextCond($rightCond, $cond);
+                    return $leftCond;
+                }else {
+                    return $leftCond?$leftCond:$rightCond;
+                }
             } elseif (strpos ( $strupper, " " . self::COND_OR . " " ) > 0) {
+                echo "or :".$strupper."\n";
                 $pos = strpos ( $strupper, " " . self::COND_OR . " " );
                 $left = substr ( $expression, 0, $pos );
-                $this->explorCond ( $left, self::COND_OR,$subIndex );
+                $leftCond = $this->explorCond ( $left, self::COND_OR );
+                
                 $right = substr ( $expression, $pos + 3 );
-                $this->explorCond ( $right, self::COND_OR,$subIndex );
+                $rightCond = $this->explorCond ( $right, self::COND_OR );
+                if($leftCond&&$rightCond){
+                    $leftCond->addNextCond($rightCond, $cond);
+                    return $leftCond;
+                }else {
+                    return $leftCond?$leftCond:$rightCond;
+                }
             } elseif (preg_match ( "/^(?<field>[\w\d_]+)\s*(?<op>" . $opPreg . ")\s*(?<val>:?[\w\d_]+:?)?$/i", $expression, $match )) {
-                if ($cond == self::COND_OR) {
-                    if($subIndex>=0){
-                        $this->subOrCond[$subIndex] [] = array (
-                            "Field" => $match ["field"],
-                            "Op" => $match ["op"],
-                            "Value" => isset ( $match ["val"] ) ? trim($match ["val"],":") : ''
-                        );
-                    }else{
-                        $this->orCond [] = array (
-                            "Field" => $match ["field"],
-                            "Op" => $match ["op"],
-                            "Value" => isset ( $match ["val"] ) ? trim($match ["val"],":") : ''
-                        );
-                    }
-                } elseif ($cond == self::COND_AND) {
-                    if($subIndex>=0){
-                        $this->subAndCond[$subIndex] [] = array (
-                            "Field" => $match ["field"],
-                            "Op" => $match ["op"],
-                            "Value" => isset ( $match ["val"] ) ? trim($match ["val"],":") : ''
-                        );
-                    }else{
-                        $this->andCond [] = array (
-                            "Field" => $match ["field"],
-                            "Op" => $match ["op"],
-                            "Value" => isset ( $match ["val"] ) ? trim($match ["val"],":") : ''
-                        );
-                    }
-                }
-                return;
+                $value = isset ( $match ["val"] ) ? trim($match ["val"],":") : '';
+                $leaveCond = new SelectConds();
+                $leaveCond->setCond($match ["field"], $match ["op"],$value);
+                return $leaveCond;
             } else {
-                if($subIndex>=0){
-                    // 放入filter
-                    if (! empty ( $this->FilterExpression )) {
-                        $this->SubFilterExpression[$subIndex][]= " " . $cond . " " . $expression;
-                    } else {
-                        $this->SubFilterExpression[$subIndex][] = $expression;
-                    }
-                }else{
-                    // 放入filter
-                    if (! empty ( $this->FilterExpression )) {
-                        $this->FilterExpression []= " " . $cond . " " . $expression;
-                    } else {
-                        $this->FilterExpression[] = $expression;
-                    }
-                }
+                //不支持的查询条件
+                throw new DbException ( "invalie condition：".$expression."|" );
             }
-        } else {
-            throw new DbException ( "invalie condition" );
+        }else{
+            return null;
         }
     }
 

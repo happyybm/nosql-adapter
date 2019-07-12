@@ -47,59 +47,19 @@ class ElasticSearchSelect extends Select
     {
         // 分析查询逻辑条件
         foreach ( $this->ands as $expression ) {
-            $this->explorCond ( $expression, self::COND_AND );
+            $this->selectConds->addNextCond($this->explorCond ( $expression, self::COND_AND ), self::COND_AND);
         }
         foreach ( $this->ors as $expression ) {
-            $this->explorCond ( $expression, self::COND_OR );
+            $this->selectConds->addNextCond($this->explorCond ( $expression, self::COND_OR ),self::COND_OR);
         }
+        $lastCond = $this->selectConds;
+        var_dump($lastCond);
+        exit;
         // 分析逻辑处理
-        foreach ( $this->andCond as $cond ) {
-            $this->processAndCond ( $cond, $this->termQueryAnd );
-        }
-        foreach ( $this->orCond as $cond ) {
-            $this->processOrCond ( $cond, $this->termQueryOr );
-        }
-        $subAndConds = [ ];
-        $subOrConds = [ ];
-        foreach ( $this->subAndCond as $idx => $subConds ) {
-            $tmpCond = [ ];
-            foreach ( $subConds as $cond ) {
-                $this->processAndCond ( $cond, $tmpCond );
-            }
-            if (! empty ( $tmpCond )) {
-                $subAndConds [] = $tmpCond;
-            }
-        }
-        foreach ( $this->subOrCond as $idx => $subConds ) {
-            $tmpCond = [ ];
-            foreach ( $subConds as $cond ) {
-                $this->processOrCond ( $cond, $tmpCond );
-            }
-            if (! empty ( $tmpCond )) {
-                $tmpCond ["minimum_should_match"] = 1;
-                $subOrConds [] = $tmpCond;
-            }
-        }
-        
-        if (! empty ( $subAndConds )) {
-            // 嵌套的and操作。也是and操作
-            foreach ( $subAndConds as $ids => $conds ) {
-                foreach ( $conds as $type => $cond ) {
-                    if (isset ( $this->termQueryAnd [$type] )) {
-                        $this->termQueryAnd [$type] = array_merge ( $this->termQueryAnd [$type], $cond );
-                    } else {
-                        $this->termQueryAnd [$type] = $conds;
-                    }
-                }
-            }
-        }
-        if (! empty ( $subOrConds )) {
-            // 嵌套的or操作，放must下面的term的bool=>should里
-            foreach ( $subOrConds as $idx => $conds ) {
-                $this->termQueryAnd ["must"] [] = [ 
-                    "bool" => $conds 
-                ];
-            }
+        $boolQuery = [];
+        while (!empty($lastCond)){
+            $this->processCond ( $lastCond,$query );
+            $lastCond = $this->selectConds->nextCond;
         }
         
         // 设置表名
@@ -107,13 +67,8 @@ class ElasticSearchSelect extends Select
             "index" => join ( ",", $this->indexs ) 
         );
         // 设置参数
-        if (! empty ( $this->termQueryAnd )) {
-            $params ["body"] ["query"] ["bool"] = $this->termQueryAnd;
-        }
-        if (! empty ( $this->termQueryOr )) {
-            // 放should里
-            $params ["body"] ["query"] ["bool"] ["should"] = $this->termQueryOr ["should"];
-            $params ["body"] ["query"] ["bool"] ["minimum_should_match"] = 1;
+        if (! empty ( $boolQuery )) {
+            $params ["body"] ["query"] ["bool"] = $boolQuery;
         }
         // 设置排序
         if (! empty ( $this->orders )) {
@@ -144,20 +99,18 @@ class ElasticSearchSelect extends Select
     /**
      * 转批条件
      *
-     * @param array $cond
-     *            查询条件
-     * @param array $resultArr
-     *            存放条件的数组
+     * @param SelectConds $cond  查询条件
+     * @param array $resultArr 存放条件的boolQuery数组
      */
-    private function processAndCond($cond, &$resultArr)
+    private function processCond($cond, &$resultArr)
     {
-        $field = $cond ["Field"];
-        if (isset ( $this->binds [$cond ["Value"]] )) {
-            $value = $this->binds [$cond ["Value"]];
+        $field = $cond->field;
+        if (isset ( $this->binds [$cond->value] )) {
+            $value = $this->binds [$cond->value];
         } else {
-            $value = $cond["Value"];
+            $value = $cond->value;
         }
-        switch (strtoupper ( $cond ["Op"] )) {
+        switch (strtoupper ( $cond->op )) {
             case self::OP_EQ :
                 $resultArr ["must"] [] = [ 
                     "term" => [ 
