@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8a81f7c03ad6b12989c950e983238eb1",
+    "content-hash": "a4560116e5aaaa331ef91e26b10f98a3",
     "packages": [
         {
             "name": "aws/aws-sdk-php",
-            "version": "3.104.1",
+            "version": "3.107.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/aws/aws-sdk-php.git",
-                "reference": "295706ab2134bf842837fa0b0162ff3aef8b0aa4"
+                "reference": "cf0c0968f93748cbe35d6a78e7babc7b7460945f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/aws/aws-sdk-php/zipball/295706ab2134bf842837fa0b0162ff3aef8b0aa4",
-                "reference": "295706ab2134bf842837fa0b0162ff3aef8b0aa4",
+                "url": "https://api.github.com/repos/aws/aws-sdk-php/zipball/cf0c0968f93748cbe35d6a78e7babc7b7460945f",
+                "reference": "cf0c0968f93748cbe35d6a78e7babc7b7460945f",
                 "shasum": ""
             },
             "require": {
@@ -87,7 +87,7 @@
                 "s3",
                 "sdk"
             ],
-            "time": "2019-07-03T18:08:50+00:00"
+            "time": "2019-07-11T15:05:32+00:00"
         },
         {
             "name": "elasticsearch/elasticsearch",

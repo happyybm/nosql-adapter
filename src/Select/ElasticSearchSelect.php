@@ -85,7 +85,7 @@ class ElasticSearchSelect extends Select
         if (! empty ( $subAndConds )) {
             // 嵌套的and操作。也是and操作
             foreach ( $subAndConds as $ids => $conds ) {
-                foreach ($conds as $type=>$cond){
+                foreach ( $conds as $type => $cond ) {
                     if (isset ( $this->termQueryAnd [$type] )) {
                         $this->termQueryAnd [$type] = array_merge ( $this->termQueryAnd [$type], $cond );
                     } else {
@@ -96,9 +96,9 @@ class ElasticSearchSelect extends Select
         }
         if (! empty ( $subOrConds )) {
             // 嵌套的or操作，放must下面的term的bool=>should里
-            foreach ($subOrConds as $idx=>$conds){
-                $this->termQueryAnd ["must"][]=[
-                    "bool"=>$conds
+            foreach ( $subOrConds as $idx => $conds ) {
+                $this->termQueryAnd ["must"] [] = [ 
+                    "bool" => $conds 
                 ];
             }
         }
@@ -179,6 +179,20 @@ class ElasticSearchSelect extends Select
                         $field => [ 
                             "gt" => $value 
                         ] 
+                    ] 
+                ];
+                break;
+            case self::OP_IN :
+                $resultArr ["must"] [] = [ 
+                    "terms" => [ 
+                        $field => $value 
+                    ] 
+                ];
+                break;
+            case self::OP_NOT_IN :
+                $resultArr ["must_not"] [] = [ 
+                    "terms" => [ 
+                        $field => $value 
                     ] 
                 ];
                 break;
@@ -286,6 +300,24 @@ class ElasticSearchSelect extends Select
                     ] 
                 ];
                 break;
+            case self::OP_IN :
+                $resultArr ["should"] [] = [ 
+                    "terms" => [ 
+                        $field => $value 
+                    ] 
+                ];
+                break;
+            case self::OP_NOT_IN :
+                $resultArr ["should"] [] = [ 
+                    "bool" => [ 
+                        "must_not" => [ 
+                            "terms" => [ 
+                                $field => $value 
+                            ] 
+                        ] 
+                    ] 
+                ];
+                break;
             case self::OP_LT :
                 $resultArr ["should"] [] = [ 
                     "range" => [ 
@@ -321,7 +353,7 @@ class ElasticSearchSelect extends Select
                 ];
                 break;
             case self::OP_IS_NULL :
-                $resultArr ["should"][] = [ 
+                $resultArr ["should"] [] = [ 
                     "bool" => [ 
                         "must_not" => [ 
                             "exists" => [ 

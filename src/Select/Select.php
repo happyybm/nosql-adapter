@@ -19,6 +19,8 @@ abstract class Select
     const OP_LTEQ = "<=";
     const OP_GT = ">";
     const OP_GTEQ = ">=";
+    const OP_IN = "IN";
+    const OP_NOT_IN = "NOT IN";
     const OP_LIKE = "LIKE";
     const OP_IS_NULL = "IS NULL";
     const OP_IS_NOT_NULL = "IS NOT NULL";
@@ -436,6 +438,8 @@ abstract class Select
                 self::OP_EQ,
                 self::OP_GT,
                 self::OP_GTEQ,
+                self::OP_IN,
+                self::OP_NOT_IN,
                 self::OP_IS_NOT_NULL,
                 self::OP_IS_NULL,
                 self::OP_LIKE,
