@@ -1,7 +1,7 @@
 {
 	"name" : "nosql/adapter",
-	"version" : "0.1",
-	"description" : "sql nosql的使用",
+	"version" : "1.0",
+	"description" : "Dynamodb ElasticSearch 结构化查询",
 	"require" : {
 		"php" : "^7.2",
 		"aws/aws-sdk-php" : "^3.18",
@@ -14,5 +14,10 @@
 	"keywords" : [
 		"Dynamodb",
 		"ElasticSearch"
-	]
+	],
+	"autoload" : {
+		"psr-4" : {
+			"Nosql\\Adapter\\" : "src/"
+		}
+	}
 }
