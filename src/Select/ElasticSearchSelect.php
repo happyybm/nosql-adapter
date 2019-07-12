@@ -118,7 +118,7 @@ class ElasticSearchSelect extends Select
         // 设置排序
         if (! empty ( $this->orders )) {
             foreach ( $this->orders as $field => $sort ) {
-                $params ["sort"] [] = [ 
+                $params["body"]["sort"] [] = [ 
                     $field => [ 
                         "order" => strtolower ( $sort ) 
                     ] 
@@ -155,7 +155,7 @@ class ElasticSearchSelect extends Select
         if (isset ( $this->binds [$cond ["Value"]] )) {
             $value = $this->binds [$cond ["Value"]];
         } else {
-            $value = "";
+            $value = $cond["Value"];
         }
         switch (strtoupper ( $cond ["Op"] )) {
             case self::OP_EQ :
