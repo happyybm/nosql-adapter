@@ -2,7 +2,6 @@
 namespace Nosql\Select;
 
 use Nosql\Select\Select;
-use Nosql\DbException;
 
 class ElasticSearchSelect extends Select
 {

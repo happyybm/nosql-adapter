@@ -1,8 +1,6 @@
 <?php
 namespace Nosql\Adapter;
 
-require "../../vendor/autoload.php";
-
 use Nosql\Select\ElasticSearchSelect;
 use Nosql\Adapter\AbstractDb;
 use Elasticsearch\ClientBuilder;
