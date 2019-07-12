@@ -461,7 +461,7 @@ abstract class Select
                 $this->explorCond ( $left, self::COND_OR,$subIndex );
                 $right = substr ( $expression, $pos + 3 );
                 $this->explorCond ( $right, self::COND_OR,$subIndex );
-            } elseif (preg_match ( "/^(?<field>[\w\d_]+)\s*(?<op>" . $opPreg . ")\s*(?<val>:?[\w\d_]+:)?$/i", $expression, $match )) {
+            } elseif (preg_match ( "/^(?<field>[\w\d_]+)\s*(?<op>" . $opPreg . ")\s*(?<val>:?[\w\d_]+:?)?$/i", $expression, $match )) {
                 if ($cond == self::COND_OR) {
                     if($subIndex>=0){
                         $this->subOrCond[$subIndex] [] = array (

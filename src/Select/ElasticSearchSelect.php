@@ -155,7 +155,7 @@ class ElasticSearchSelect extends Select
         if (isset ( $this->binds [$cond ["Value"]] )) {
             $value = $this->binds [$cond ["Value"]];
         } else {
-            $value = "";
+            $value = $cond["Value"];
         }
         switch (strtoupper ( $cond ["Op"] )) {
             case self::OP_EQ :
