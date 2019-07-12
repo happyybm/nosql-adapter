@@ -12,7 +12,6 @@ class DynamoSelect extends Select
 {
     static $METHOD_QUERY = "Query";
     static $METHOD_SCAN = "Scan";
-    
     private $hasSetIndexKeyCondition = true;
     
     /*
@@ -53,7 +52,7 @@ class DynamoSelect extends Select
      * 表信息：属性，主键，索引
      * 分区键查询只能适用=操作，
      * TODO 这里还未区分分区键，二级索引等，待优化
-     * 
+     *
      * @var array
      */
     private $tableInfo = array (
@@ -82,7 +81,7 @@ class DynamoSelect extends Select
 
     /**
      * from默认指定表名，再调用该方法时就指定索引名
-     * 
+     *
      * @param string $tableName
      *            表名或索引名
      */
@@ -114,7 +113,7 @@ class DynamoSelect extends Select
 
     /**
      * 根据不同的条件，指定使用的查询方式：Query,Scan
-     * 
+     *
      * @return array $query
      *         例：
      *         array(
@@ -148,172 +147,61 @@ class DynamoSelect extends Select
             $this->explorCond ( $expression, self::COND_OR );
         }
         // 分析逻辑处理，指定query或scan方式查询
-        foreach ( $this->andCond as $cond ) {
-            $field = $cond ["Field"];
-            // 把条件语句中的字段转义
-            $this->ExpressionAttributeNames [self::getExchangeField ( $field )] = $field;
-            $cond = $this->getExchangeCond ( self::getExchangeField ( $field ), $cond ["Op"], $cond ["Value"] );
-            if (! $this->IndexName && in_array ( $field, $this->tableInfo ["Keys"] )) {
-                if ($this->KeyConditionExpression == "") {
-                    $this->KeyConditionExpression = $cond;
-                } else {
-                    $this->KeyConditionExpression .= " and " . $cond;
-                }
+        $cons = $this->processCond ( $this->andCond, self::COND_AND );
+        $this->setKeyFilterCond ( $cons, self::COND_AND );
+        $cons = $this->processCond ( $this->orCond, self::COND_OR );
+        $this->setKeyFilterCond ( $cons, self::COND_OR );
+        $subAndKeyConds = [ ];
+        $subAndFilterConds = [ ];
+        foreach ( $this->subAndCond as $idx => $subConds ) {
+            list ( $tmpKeyCond, $tmpFilterCond ) = $this->processCond ( $subConds, self::COND_AND );
+            if (! empty ( $tmpKeyCond )) {
+                $subAndKeyConds [] = $tmpKeyCond;
+            }
+            if (! empty ( $tmpFilterCond )) {
+                $subAndFilterConds [] = $tmpFilterCond;
+            }
+        }
+        $subOrKeyConds = [ ];
+        $subOrFilterConds = [ ];
+        foreach ( $this->subOrCond as $idx => $subConds ) {
+            list ( $tmpKeyCond, $tmpFilterCond ) = $this->processCond ( $subConds, self::COND_OR );
+            if (! empty ( $tmpKeyCond )) {
+                $subOrKeyConds [] = $tmpKeyCond;
+            }
+            if (! empty ( $tmpFilterCond )) {
+                $subOrFilterConds [] = $tmpFilterCond;
+            }
+        }
+        // 设置嵌套查询条件
+        if (! empty ( $subAndKeyConds )) {
+            if (! empty ( $this->KeyConditionExpression )) {
+                $this->KeyConditionExpression .= " and (" . join ( ") and (", $subAndKeyConds ) . ")";
             } else {
-                if ($this->IndexName && isset ( $this->tableInfo [$this->IndexName] ["Indexs"] ) && in_array ( $field, $this->tableInfo [$this->IndexName] ["Indexs"] )) {
-                    $this->hasSetIndexKeyCondition = true;
-                    if ($this->KeyConditionExpression == "") {
-                        $this->KeyConditionExpression = $cond;
-                    } else {
-                        $this->KeyConditionExpression .= " and " . $cond;
-                    }
-                } else {
-                    if (! empty ( $this->FilterExpression )) {
-                        $this->FilterExpression[] = " and " . $cond;
-                    } else {
-                        $this->FilterExpression[]= $cond;
-                    }
-                }
+                $this->KeyConditionExpression = "(" . join ( ") and (", $subAndKeyConds ) . ")";
             }
         }
-        foreach ( $this->orCond as $cond ) {
-            $field = $cond ["Field"];
-            // 把条件语句中的字段转义
-            $this->ExpressionAttributeNames [self::getExchangeField ( $field )] = $field;
-            $cond = $this->getExchangeCond ( self::getExchangeField ( $field ), $cond ["Op"], $cond ["Value"] );
-            if (! $this->IndexName && in_array ( $field, $this->tableInfo ["Keys"] )) {
-                if ($this->KeyConditionExpression == "") {
-                    $this->KeyConditionExpression = $cond;
-                } else {
-                    $this->KeyConditionExpression .= " or " . $cond;
-                }
+        if (! empty ( $subOrKeyConds )) {
+            if (! empty ( $this->KeyConditionExpression )) {
+                $this->KeyConditionExpression .= " and (" . join ( ") and (", $subOrKeyConds ) . ")";
             } else {
-                if ($this->IndexName && isset ( $this->tableInfo [$this->IndexName] ["Indexs"] ) && in_array ( $field, $this->tableInfo [$this->IndexName] ["Indexs"] )) {
-                    $this->hasSetIndexKeyCondition = true;
-                    if ($this->KeyConditionExpression == "") {
-                        $this->KeyConditionExpression = $cond;
-                    } else {
-                        $this->KeyConditionExpression .= " or " . $cond;
-                    }
-                } else {
-                    if (! empty ( $this->FilterExpression )) {
-                        $this->FilterExpression[]= " or " . $cond;
-                    } else {
-                        $this->FilterExpression[] = $cond;
-                    }
-                }
+                $this->KeyConditionExpression = " (" . join ( ") and (", $subOrKeyConds ) . ")";
             }
         }
-        $subAndKeyConds = [];
-        $subAndFilterConds = [];
-        foreach ($this->subAndCond as $idx=>$subConds){
-            $tmpKeyCond = "";
-            $tmpFilterCond = "";
-            foreach ($subConds as $cond){
-                $field = $cond ["Field"];
-                // 把条件语句中的字段转义
-                $this->ExpressionAttributeNames [self::getExchangeField ( $field )] = $field;
-                $cond = $this->getExchangeCond ( self::getExchangeField ( $field ), $cond ["Op"], $cond ["Value"] );
-                if (! $this->IndexName && in_array ( $field, $this->tableInfo ["Keys"] )) {
-                    if ($tmpKeyCond == "") {
-                        $tmpKeyCond = $cond;
-                    } else {
-                        $tmpKeyCond .= " and " . $cond;
-                    }
-                } else {
-                    if ($this->IndexName && isset ( $this->tableInfo [$this->IndexName] ["Indexs"] ) && in_array ( $field, $this->tableInfo [$this->IndexName] ["Indexs"] )) {
-                        $this->hasSetIndexKeyCondition = true;
-                        if ($tmpKeyCond == "") {
-                            $tmpKeyCond = $cond;
-                        } else {
-                            $tmpKeyCond .= " and " . $cond;
-                        }
-                    } else {
-                        if (! empty ( $tmpFilterCond )) {
-                            $tmpFilterCond.= " and " . $cond;
-                        } else {
-                            $tmpFilterCond = $cond;
-                        }
-                    }
-                }
-            }
-            if(!empty($tmpKeyCond)){
-                $subAndKeyConds[] = $tmpKeyCond;
-            }
-            if(!empty($tmpFilterCond)){
-                $subAndFilterConds[] = $tmpFilterCond;
-            }
-        }
-        $subOrKeyConds = [];
-        $subOrFilterConds = [];
-        foreach ($this->subOrCond as $idx=>$subConds){
-            $tmpKeyCond = "";
-            $tmpFilterCond = "";
-            foreach ($subConds as $cond){
-                $field = $cond ["Field"];
-                // 把条件语句中的字段转义
-                $this->ExpressionAttributeNames [self::getExchangeField ( $field )] = $field;
-                $cond = $this->getExchangeCond ( self::getExchangeField ( $field ), $cond ["Op"], $cond ["Value"] );
-                if (! $this->IndexName && in_array ( $field, $this->tableInfo ["Keys"] )) {
-                    if ($tmpKeyCond == "") {
-                        $tmpKeyCond = $cond;
-                    } else {
-                        $tmpKeyCond .= " or " . $cond;
-                    }
-                } else {
-                    if ($this->IndexName && isset ( $this->tableInfo [$this->IndexName] ["Indexs"] ) && in_array ( $field, $this->tableInfo [$this->IndexName] ["Indexs"] )) {
-                        $this->hasSetIndexKeyCondition = true;
-                        if ($tmpKeyCond == "") {
-                            $tmpKeyCond = $cond;
-                        } else {
-                            $tmpKeyCond .= " or " . $cond;
-                        }
-                    } else {
-                        if (! empty ( $tmpFilterCond )) {
-                            $tmpFilterCond.= " or " . $cond;
-                        } else {
-                            $tmpFilterCond = $cond;
-                        }
-                    }
-                }
-            }
-            if(!empty($tmpKeyCond)){
-                $subOrKeyConds[] = $tmpKeyCond;
-            }
-            if(!empty($tmpFilterCond)){
-                $subOrFilterConds[] = $tmpFilterCond;
-            }
-        }
-        
-        if(!empty($subAndKeyConds)){
-            if(!empty($this->KeyConditionExpression)){
-                $this->KeyConditionExpression .=  " and (".join(") and (", $subAndKeyConds).")";
-            }else{
-                $this->KeyConditionExpression =  "(".join(") and (", $subAndKeyConds).")";
-            }
-        }
-        if(!empty($subOrKeyConds)){
-            if(!empty($this->KeyConditionExpression)){
-                $this->KeyConditionExpression .=  " and (".join(") and (", $subOrKeyConds).")";
-            }else{
-                $this->KeyConditionExpression =  " (".join(") and (", $subOrKeyConds).")";
-            }
-        }
-        if(!empty($subAndFilterConds)){
+        if (! empty ( $subAndFilterConds )) {
             if (! empty ( $this->FilterExpression )) {
-                $this->FilterExpression[] =  " and (".join(") and (", $subAndFilterConds).")";
-            }else{
-                $this->FilterExpression[] =  "(".join(") and (", $subAndFilterConds).")";
+                $this->FilterExpression [] = " and (" . join ( ") and (", $subAndFilterConds ) . ")";
+            } else {
+                $this->FilterExpression [] = "(" . join ( ") and (", $subAndFilterConds ) . ")";
             }
         }
-        if(!empty($subOrFilterConds)){
+        if (! empty ( $subOrFilterConds )) {
             if (! empty ( $this->FilterExpression )) {
-                $this->FilterExpression[] =  " and (".join(") and (", $subOrFilterConds).")";
-            }else{
-                $this->FilterExpression[] =  "(".join(") and (", $subOrFilterConds).")";
+                $this->FilterExpression [] = " and (" . join ( ") and (", $subOrFilterConds ) . ")";
+            } else {
+                $this->FilterExpression [] = "(" . join ( ") and (", $subOrFilterConds ) . ")";
             }
         }
-        
         // 设置参数
         // 设置表名,默认非强一致性读取
         $params = array (
@@ -364,7 +252,7 @@ class DynamoSelect extends Select
         }
         // 设置结果过滤条件
         if (! empty ( $this->FilterExpression )) {
-            $params ["FilterExpression"] = join(" ", $this->FilterExpression);
+            $params ["FilterExpression"] = join ( " ", $this->FilterExpression );
         }
         // 指定查询类型
         if (empty ( $this->KeyConditionExpression )) {
@@ -378,8 +266,107 @@ class DynamoSelect extends Select
     }
 
     /**
-     * 转义字段，前面加#号
+     * 设置查询条件
      * 
+     * @param unknown $keyFilterCond            
+     * @param unknown $type            
+     */
+    private function setKeyFilterCond($keyFilterCond, $type)
+    {
+        if (! empty ( $keyFilterCond ["keyCond"] )) {
+            if ($this->KeyConditionExpression == "") {
+                $this->KeyConditionExpression = $keyFilterCond ["keyCond"];
+            } else {
+                $this->KeyConditionExpression .= " " . $type . " " . $keyFilterCond ["keyCond"];
+            }
+        }
+        if (! empty ( $keyFilterCond ["filterCond"] )) {
+            if (! empty ( $this->FilterExpression )) {
+                $this->FilterExpression [] = " " . $type . " " . $keyFilterCond ["filterCond"];
+            } else {
+                $this->FilterExpression [] = $keyFilterCond ["filterCond"];
+            }
+        }
+    }
+
+    /**
+     * 处理条件
+     * 
+     * @param array $cond            
+     * @param string $type            
+     * @return array [
+     *         "keyCond"=>'',
+     *         "filterCond"=>''
+     *         ]
+     */
+    private function processCond($conds, $type)
+    {
+        $tmpKeyCond = "";
+        $tmpFilterCond = "";
+        foreach ( $conds as $cond ) {
+            $field = $cond ["Field"];
+            // 把条件语句中的字段转义
+            $this->ExpressionAttributeNames [self::getExchangeField ( $field )] = $field;
+            $cond = $this->getExchangeCond ( self::getExchangeField ( $field ), $cond ["Op"], $cond ["Value"] );
+            if (! $this->IndexName && in_array ( $field, $this->tableInfo ["Keys"] )) {
+                if ($tmpKeyCond == "") {
+                    $tmpKeyCond = $cond;
+                } else {
+                    $tmpKeyCond .= " " . $type . " " . $cond;
+                }
+            } else {
+                if ($this->IndexName && isset ( $this->tableInfo [$this->IndexName] ["Indexs"] ) && in_array ( $field, $this->tableInfo [$this->IndexName] ["Indexs"] )) {
+                    $this->hasSetIndexKeyCondition = true;
+                    if ($tmpKeyCond == "") {
+                        $tmpKeyCond = $cond;
+                    } else {
+                        $tmpKeyCond .= " " . $type . " " . $cond;
+                    }
+                } else {
+                    if (! empty ( $tmpFilterCond )) {
+                        $tmpFilterCond .= " " . $type . " " . $cond;
+                    } else {
+                        $tmpFilterCond = $cond;
+                    }
+                }
+            }
+        }
+        return [ 
+            "keyCond" => $tmpKeyCond,
+            "filterCond" => $tmpFilterCond 
+        ];
+        
+        // $field = $cond ["Field"];
+        // // 把条件语句中的字段转义
+        // $this->ExpressionAttributeNames [self::getExchangeField ( $field )] = $field;
+        // $cond = $this->getExchangeCond ( self::getExchangeField ( $field ), $cond ["Op"], $cond ["Value"] );
+        // if (! $this->IndexName && in_array ( $field, $this->tableInfo ["Keys"] )) {
+        // if ($this->KeyConditionExpression == "") {
+        // $this->KeyConditionExpression = $cond;
+        // } else {
+        // $this->KeyConditionExpression .= " ".$type." " . $cond;
+        // }
+        // } else {
+        // if ($this->IndexName && isset ( $this->tableInfo [$this->IndexName] ["Indexs"] ) && in_array ( $field, $this->tableInfo [$this->IndexName] ["Indexs"] )) {
+        // $this->hasSetIndexKeyCondition = true;
+        // if ($this->KeyConditionExpression == "") {
+        // $this->KeyConditionExpression = $cond;
+        // } else {
+        // $this->KeyConditionExpression .= " ".$type." " . $cond;
+        // }
+        // } else {
+        // if (! empty ( $this->FilterExpression )) {
+        // $this->FilterExpression[] = " ".$type." " . $cond;
+        // } else {
+        // $this->FilterExpression[]= $cond;
+        // }
+        // }
+        // }
+    }
+
+    /**
+     * 转义字段，前面加#号
+     *
      * @param string $field            
      * @return string
      */
@@ -390,7 +377,7 @@ class DynamoSelect extends Select
 
     /**
      * 转化条件操作
-     * 
+     *
      * @param string $field
      *            属性
      * @param string $op
@@ -402,8 +389,8 @@ class DynamoSelect extends Select
     private function getExchangeCond($field, $op, $value)
     {
         $realValue = $value;
-        if (!empty($value)) {
-            $value=":".$value;
+        if (! empty ( $value )) {
+            $value = ":" . $value;
             $realValue = $this->ExpressionAttributeValues [$value];
         }
         switch (strtoupper ( $op )) {
