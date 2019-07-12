@@ -10,7 +10,7 @@
 	},
 	"license" : "MIT",
 	"minimum-stability" : "stable",
-	"type" : "php",
+	"type" : "library",
 	"keywords" : [
 		"Dynamodb",
 		"ElasticSearch"
