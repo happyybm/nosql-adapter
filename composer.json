@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
     "name": "nosql/adapter",
     "version":"0.1",
     "description": "sql nosql的使用",
@@ -7,3 +8,27 @@
         "aws/aws-sdk-php": "^3.18"
     }
 }
+=======
+	"name" : "nosql/adapter",
+	"version" : "1.0",
+	"description" : "Dynamodb ElasticSearch 结构化查询",
+	"require" : {
+		"php" : "^7.2",
+		"aws/aws-sdk-php" : "^3.18",
+		"elasticsearch/elasticsearch" : "^7.0",
+		"monolog/monolog" : "~1.0"
+	},
+	"license" : "MIT",
+	"minimum-stability" : "stable",
+	"type" : "library",
+	"keywords" : [
+		"Dynamodb",
+		"ElasticSearch"
+	],
+	"autoload" : {
+		"psr-4" : {
+			"Nosql\\" : "src/"
+		}
+	}
+}
+>>>>>>> 54cf7109c777f2b9ffb3d750ea69194431e61431

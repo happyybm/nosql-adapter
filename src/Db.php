@@ -3,9 +3,9 @@
 namespace Nosql;
 
 use Nosql\DbException;
-use Nosql\Adapter\Mongo;
-use Nosql\Adapter\Dynamo;
 use Nosql\Adapter\AbstractDb;
+use Nosql\Adapter\DynamoDb;
+use Nosql\Adapter\ElasticSearchDb;
 
 /**
  * adapter的工厂类。用于生成adapter
@@ -27,7 +27,7 @@ class Db {
 		 * Verify that adapter parameters are in an array.
 		 */
 		if (! is_array ( $config )) {
-			throw new DbException ( 'Adapter parameters must be in an array or a Zend_Config object' );
+			throw new DbException ( 'Adapter parameters must be  an array ' );
 		}
 		
 		/*
@@ -41,7 +41,7 @@ class Db {
 		 */
 		$adapterName = ucfirst ( $adapter );
 		if (! class_exists ( $adapterName )) {
-			throw new DbException ( 'Adapter class not fund' );
+		    throw new DbException ( 'Adapter '.$adapterName.' class not fund' );
 		}
 		
 		/*
@@ -52,7 +52,7 @@ class Db {
 		 * Verify that the object created is a descendent of the abstract adapter type.
 		 */
 		if (! $dbAdapter instanceof AbstractDb) {
-			throw new DbException ( "Adapter class '$adapterName' does not extend Zend_Db_Adapter_Abstract");
+			throw new DbException ( "Adapter class '$adapterName' does not extend AbstractDb");
 		}
 		return $dbAdapter;
 	}
