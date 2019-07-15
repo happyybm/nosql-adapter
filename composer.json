@@ -1,14 +1,4 @@
 {
-<<<<<<< HEAD
-    "name": "nosql/adapter",
-    "version":"0.1",
-    "description": "sql nosql的使用",
-    "require": {
-        "php": "^5.5",
-        "aws/aws-sdk-php": "^3.18"
-    }
-}
-=======
 	"name" : "nosql/adapter",
 	"version" : "1.0",
 	"description" : "Dynamodb ElasticSearch 结构化查询",
@@ -31,4 +21,3 @@
 		}
 	}
 }
->>>>>>> 54cf7109c777f2b9ffb3d750ea69194431e61431
