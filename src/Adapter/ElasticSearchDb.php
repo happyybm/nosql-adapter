@@ -228,7 +228,7 @@ class ElasticSearchDb extends AbstractDb
             'index' => $indexName,
             'body'  => $data
         ];
-        $response = $this->client->index($params);
+        return $this->client->index($params);
     }
 
     /**

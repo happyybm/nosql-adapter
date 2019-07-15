@@ -2,31 +2,26 @@
 namespace Nosql\Select;
 
 use Nosql\Select\Select;
+use Nosql\Adapter\ElasticSearch\MatchTerm;
+use Nosql\Adapter\ElasticSearch\ExistsTerm;
+use Nosql\Adapter\ElasticSearch\BoolTerm;
+use Nosql\Adapter\ElasticSearch\RangeTerm;
+use Nosql\Adapter\ElasticSearch\InTerm;
+use Nosql\Adapter\ElasticSearch\WildcardTerm;
+use Nosql\Adapter\ElasticSearch\Term;
 
 class ElasticSearchSelect extends Select
 {
+    const KEY_TRUE = "must";
+    const KEY_NOT = "must_not";
+    const KEY_SHOULD = "should";
     /**
      * 多个索引同时搜索
      *
      * @var array
      */
     private $indexs = [ ];
-    
-    /**
-     * 精确查询
-     *
-     * @var array
-     */
-    private $termQueryAnd = [ ];
-    private $termQueryOr = [ ];
-    
-    /**
-     * 嵌套查询
-     *
-     * @var array
-     */
-    private $subTermQueryAnd = [ ];
-    private $subTermQueryOr = [ ];
+    private $params = [ ];
 
     /*
      * (non-PHPdoc)
@@ -47,33 +42,34 @@ class ElasticSearchSelect extends Select
     {
         // 分析查询逻辑条件
         foreach ( $this->ands as $expression ) {
-            $this->selectConds->addNextCond($this->explorCond ( $expression, self::COND_AND ), self::COND_AND);
+            $nextCond = $this->explorCond ( $expression );
+            if($nextCond){
+                $this->selectConds->addNextCond ( $nextCond, self::COND_AND );
+            }
         }
         foreach ( $this->ors as $expression ) {
-            $this->selectConds->addNextCond($this->explorCond ( $expression, self::COND_OR ),self::COND_OR);
+            $nextCond = $this->explorCond ( $expression );
+            if($nextCond){
+                $this->selectConds->addNextCond ( $nextCond, self::COND_OR );
+            }
         }
         $lastCond = $this->selectConds;
-        var_dump($lastCond);
-        exit;
         // 分析逻辑处理
-        $boolQuery = [];
-        while (!empty($lastCond)){
-            $this->processCond ( $lastCond,$query );
-            $lastCond = $this->selectConds->nextCond;
+        $boolTerm = new BoolTerm();
+        while ( ! empty ( $lastCond ) ) {
+            $this->processCond ( $lastCond, $boolTerm );
+            $lastCond = $lastCond->nextCond;
         }
-        
         // 设置表名
         $params = array (
             "index" => join ( ",", $this->indexs ) 
         );
         // 设置参数
-        if (! empty ( $boolQuery )) {
-            $params ["body"] ["query"] ["bool"] = $boolQuery;
-        }
+        $params ["body"] ["query"] = $boolTerm->toArray();
         // 设置排序
         if (! empty ( $this->orders )) {
             foreach ( $this->orders as $field => $sort ) {
-                $params["body"]["sort"] [] = [ 
+                $params ["body"] ["sort"] [] = [ 
                     $field => [ 
                         "order" => strtolower ( $sort ) 
                     ] 
@@ -97,12 +93,11 @@ class ElasticSearchSelect extends Select
     }
 
     /**
-     * 转批条件
-     *
-     * @param SelectConds $cond  查询条件
-     * @param array $resultArr 存放条件的boolQuery数组
+     * 组装查询条件
+     * @param SelectConds $cond            
+     * @return Term
      */
-    private function processCond($cond, &$resultArr)
+    private function initTerm($cond)
     {
         $field = $cond->field;
         if (isset ( $this->binds [$cond->value] )) {
@@ -112,225 +107,77 @@ class ElasticSearchSelect extends Select
         }
         switch (strtoupper ( $cond->op )) {
             case self::OP_EQ :
-                $resultArr ["must"] [] = [ 
-                    "term" => [ 
-                        $field => $value 
-                    ] 
-                ];
-                break;
+                return new MatchTerm ( $field, $value );
             case self::OP_NEQ :
-                $resultArr ["must_not"] [] = [ 
-                    "term" => [ 
-                        $field => $value 
-                    ] 
-                ];
-                break;
+                $bt = new BoolTerm ();
+                $term = new MatchTerm ( $field, $value );
+                $bt->addMustNot ( $term );
+                return $bt;
             case self::OP_GT :
-                $resultArr ["must"] [] = [ 
-                    "range" => [ 
-                        $field => [ 
-                            "gt" => $value 
-                        ] 
-                    ] 
-                ];
-                break;
+                return new RangeTerm ( $field, RangeTerm::OP_GT, $value );
             case self::OP_IN :
-                $resultArr ["must"] [] = [ 
-                    "terms" => [ 
-                        $field => $value 
-                    ] 
-                ];
-                break;
+                return new InTerm ( $field, $value );
             case self::OP_NOT_IN :
-                $resultArr ["must_not"] [] = [ 
-                    "terms" => [ 
-                        $field => $value 
-                    ] 
-                ];
-                break;
+                $term = new InTerm ( $field, $value );
+                $bt = new BoolTerm ();
+                $bt->addMustNot ( $term );
+                return $bt;
             case self::OP_LT :
-                $resultArr ["must"] [] = [ 
-                    "range" => [ 
-                        $field => [ 
-                            "lt" => $value 
-                        ] 
-                    ] 
-                ];
-                break;
+                return new RangeTerm ( $field, RangeTerm::OP_LT, $value );
             case self::OP_GTEQ :
-                $resultArr ["must"] [] = [ 
-                    "range" => [ 
-                        $field => [ 
-                            "gte" => $value 
-                        ] 
-                    ] 
-                ];
-                break;
+                return new RangeTerm ( $field, RangeTerm::OP_GTE, $value );
             case self::OP_LTEQ :
-                $resultArr ["must"] [] = [ 
-                    "range" => [ 
-                        $field => [ 
-                            "lte" => $value 
-                        ] 
-                    ] 
-                ];
-                break;
+                return new RangeTerm ( $field, RangeTerm::OP_LTE, $value );
             case self::OP_IS_NOT_NULL :
-                $resultArr ["must"] [] = [ 
-                    "exists" => [ 
-                        "field" => $field 
-                    ] 
-                ];
-                break;
+                return new ExistsTerm ( $field );
             case self::OP_IS_NULL :
-                $resultArr ["must_not"] [] = [ 
-                    "exists" => [ 
-                        "field" => $field 
-                    ] 
-                ];
+                $bt = new BoolTerm ();
+                $term = new ExistsTerm ( $field );
+                $bt->addMustNot ( $term );
+                return $bt;
                 break;
             case self::OP_LIKE :
                 if (preg_match ( "/%/", $value )) {
                     $value = str_replace ( "%", "*", $value );
-                    $resultArr ["must"] [] = [ 
-                        "wildcard" => [ 
-                            $field => $value 
-                        ] 
-                    ];
+                    return new WildcardTerm ( $field, $value );
                 } else {
-                    $resultArr ["must"] [] = [ 
-                        "term" => [ 
-                            $field => $value 
-                        ] 
-                    ];
+                    return new MatchTerm ( $field, $value );
                 }
-                break;
         }
     }
 
     /**
      * 转批条件
      *
-     * @param array $cond
-     *            查询条件
-     * @param array $resultArr
-     *            存放条件的数组
+     * @param SelectConds $cond 查询条件
+     * @param BoolTerm $boolTerm 存放条件的boolQuery数组
      */
-    private function processOrCond($cond, &$resultArr)
+    private function processCond($cond, &$boolTerm, $type = self::COND_AND)
     {
-        $field = $cond ["Field"];
-        if (isset ( $this->binds [$cond ["Value"]] )) {
-            $value = $this->binds [$cond ["Value"]];
-        } else {
-            $value = "";
-        }
-        switch (strtoupper ( $cond ["Op"] )) {
-            case self::OP_EQ :
-                $resultArr ["should"] [] = [ 
-                    "term" => [ 
-                        $field => $value 
-                    ] 
-                ];
-                break;
-            case self::OP_NEQ :
-                $resultArr ["should"] [] = [ 
-                    "bool" => [ 
-                        "must_not" => [ 
-                            "term" => [ 
-                                $field => $value 
-                            ] 
-                        ] 
-                    ] 
-                ];
-                break;
-            case self::OP_GT :
-                $resultArr ["should"] [] = [ 
-                    "range" => [ 
-                        $field => [ 
-                            "gt" => $value 
-                        ] 
-                    ] 
-                ];
-                break;
-            case self::OP_IN :
-                $resultArr ["should"] [] = [ 
-                    "terms" => [ 
-                        $field => $value 
-                    ] 
-                ];
-                break;
-            case self::OP_NOT_IN :
-                $resultArr ["should"] [] = [ 
-                    "bool" => [ 
-                        "must_not" => [ 
-                            "terms" => [ 
-                                $field => $value 
-                            ] 
-                        ] 
-                    ] 
-                ];
-                break;
-            case self::OP_LT :
-                $resultArr ["should"] [] = [ 
-                    "range" => [ 
-                        $field => [ 
-                            "lt" => $value 
-                        ] 
-                    ] 
-                ];
-                break;
-            case self::OP_GTEQ :
-                $resultArr ["should"] [] = [ 
-                    "range" => [ 
-                        $field => [ 
-                            "gte" => $value 
-                        ] 
-                    ] 
-                ];
-                break;
-            case self::OP_LTEQ :
-                $resultArr ["should"] [] = [ 
-                    "range" => [ 
-                        $field => [ 
-                            "lte" => $value 
-                        ] 
-                    ] 
-                ];
-                break;
-            case self::OP_IS_NOT_NULL :
-                $resultArr ["should"] [] = [ 
-                    "exists" => [ 
-                        "field" => $field 
-                    ] 
-                ];
-                break;
-            case self::OP_IS_NULL :
-                $resultArr ["should"] [] = [ 
-                    "bool" => [ 
-                        "must_not" => [ 
-                            "exists" => [ 
-                                "field" => $field 
-                            ] 
-                        ] 
-                    ] 
-                ];
-                break;
-            case self::OP_LIKE :
-                if (preg_match ( "/%/", $value )) {
-                    $value = str_replace ( "%", "*", $value );
-                    $resultArr ["should"] [] = [ 
-                        "wildcard" => [ 
-                            $field => $value 
-                        ] 
-                    ];
+        if ($cond->field ) {
+            $term = $this->initTerm ( $cond, $type );
+            if ($type == self::COND_AND) {
+                if ($cond->op == self::OP_NEQ || $cond->op == self::OP_NOT_IN || $cond->op == self::OP_IS_NULL) {
+                    $boolTerm->addMustnot($term);
                 } else {
-                    $resultArr ["should"] [] = [ 
-                        "term" => [ 
-                            $field => $value 
-                        ] 
-                    ];
+                    $boolTerm->addMust($term);
                 }
-                break;
+            } else {
+                $boolTerm->addShould($term);
+            }
+        }
+        if ($cond->childCond) {
+            $lastCond = $cond->childCond;
+            $childTerm = new BoolTerm();
+            while ( ! empty ( $lastCond ) ) {
+                $this->processCond ( $lastCond, $childTerm,$lastCond->nextCondType );
+                $lastCond = $lastCond->nextCond;
+            }
+            if ($type == self::COND_AND) {
+                $boolTerm->addMust($childTerm);
+            } else {
+                $boolTerm->addShould($childTerm);
+            }
         }
     }
 

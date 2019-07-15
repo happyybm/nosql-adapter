@@ -141,67 +141,25 @@ class DynamoSelect extends Select
         }
         // 分析查询逻辑条件
         foreach ( $this->ands as $expression ) {
-            $this->explorCond ( $expression, self::COND_AND );
+            $nextCond = $this->explorCond ( $expression );
+            if($nextCond){
+                $this->selectConds->addNextCond ( $nextCond, self::COND_AND );
+            }
         }
         foreach ( $this->ors as $expression ) {
-            $this->explorCond ( $expression, self::COND_OR );
-        }
-        // 分析逻辑处理，指定query或scan方式查询
-        $cons = $this->processCond ( $this->andCond, self::COND_AND );
-        $this->setKeyFilterCond ( $cons, self::COND_AND );
-        $cons = $this->processCond ( $this->orCond, self::COND_OR );
-        $this->setKeyFilterCond ( $cons, self::COND_OR );
-        $subAndKeyConds = [ ];
-        $subAndFilterConds = [ ];
-        foreach ( $this->subAndCond as $idx => $subConds ) {
-            list ( $tmpKeyCond, $tmpFilterCond ) = $this->processCond ( $subConds, self::COND_AND );
-            if (! empty ( $tmpKeyCond )) {
-                $subAndKeyConds [] = $tmpKeyCond;
-            }
-            if (! empty ( $tmpFilterCond )) {
-                $subAndFilterConds [] = $tmpFilterCond;
+            $nextCond = $this->explorCond ( $expression );
+            if($nextCond){
+                $this->selectConds->addNextCond ( $nextCond, self::COND_OR );
             }
         }
-        $subOrKeyConds = [ ];
-        $subOrFilterConds = [ ];
-        foreach ( $this->subOrCond as $idx => $subConds ) {
-            list ( $tmpKeyCond, $tmpFilterCond ) = $this->processCond ( $subConds, self::COND_OR );
-            if (! empty ( $tmpKeyCond )) {
-                $subOrKeyConds [] = $tmpKeyCond;
-            }
-            if (! empty ( $tmpFilterCond )) {
-                $subOrFilterConds [] = $tmpFilterCond;
-            }
+        $lastCond = $this->selectConds;
+        // 分析逻辑处理
+        while ( ! empty ( $lastCond ) ) {
+            $cons = $this->processCond ( $lastCond);
+            $this->setKeyFilterCond ( $cons, $lastCond->nextCondType);
+            $lastCond = $lastCond->nextCond;
         }
-        // 设置嵌套查询条件
-        if (! empty ( $subAndKeyConds )) {
-            if (! empty ( $this->KeyConditionExpression )) {
-                $this->KeyConditionExpression .= " and (" . join ( ") and (", $subAndKeyConds ) . ")";
-            } else {
-                $this->KeyConditionExpression = "(" . join ( ") and (", $subAndKeyConds ) . ")";
-            }
-        }
-        if (! empty ( $subOrKeyConds )) {
-            if (! empty ( $this->KeyConditionExpression )) {
-                $this->KeyConditionExpression .= " and (" . join ( ") and (", $subOrKeyConds ) . ")";
-            } else {
-                $this->KeyConditionExpression = " (" . join ( ") and (", $subOrKeyConds ) . ")";
-            }
-        }
-        if (! empty ( $subAndFilterConds )) {
-            if (! empty ( $this->FilterExpression )) {
-                $this->FilterExpression [] = " and (" . join ( ") and (", $subAndFilterConds ) . ")";
-            } else {
-                $this->FilterExpression [] = "(" . join ( ") and (", $subAndFilterConds ) . ")";
-            }
-        }
-        if (! empty ( $subOrFilterConds )) {
-            if (! empty ( $this->FilterExpression )) {
-                $this->FilterExpression [] = " and (" . join ( ") and (", $subOrFilterConds ) . ")";
-            } else {
-                $this->FilterExpression [] = "(" . join ( ") and (", $subOrFilterConds ) . ")";
-            }
-        }
+        
         // 设置参数
         // 设置表名,默认非强一致性读取
         $params = array (
@@ -292,42 +250,41 @@ class DynamoSelect extends Select
     /**
      * 处理条件
      * 
-     * @param array $cond            
+     * @param SelectConds $cond            
      * @param string $type            
      * @return array [
      *         "keyCond"=>'',
      *         "filterCond"=>''
      *         ]
      */
-    private function processCond($conds, $type)
+    private function processCond($cond)
     {
+        $type = $cond->nextCondType;
         $tmpKeyCond = "";
         $tmpFilterCond = "";
-        foreach ( $conds as $cond ) {
-            $field = $cond ["Field"];
-            // 把条件语句中的字段转义
-            $this->ExpressionAttributeNames [self::getExchangeField ( $field )] = $field;
-            $cond = $this->getExchangeCond ( self::getExchangeField ( $field ), $cond ["Op"], $cond ["Value"] );
-            if (! $this->IndexName && in_array ( $field, $this->tableInfo ["Keys"] )) {
+        $field = $cond->field;
+        // 把条件语句中的字段转义
+        $this->ExpressionAttributeNames [self::getExchangeField ( $field )] = $field;
+        $cond = $this->getExchangeCond ( self::getExchangeField ( $field ), $cond->op, $cond->value );
+        if (! $this->IndexName && in_array ( $field, $this->tableInfo ["Keys"] )) {
+            if ($tmpKeyCond == "") {
+                $tmpKeyCond = $cond;
+            } else {
+                $tmpKeyCond .= " " . $type . " " . $cond;
+            }
+        } else {
+            if ($this->IndexName && isset ( $this->tableInfo [$this->IndexName] ["Indexs"] ) && in_array ( $field, $this->tableInfo [$this->IndexName] ["Indexs"] )) {
+                $this->hasSetIndexKeyCondition = true;
                 if ($tmpKeyCond == "") {
                     $tmpKeyCond = $cond;
                 } else {
                     $tmpKeyCond .= " " . $type . " " . $cond;
                 }
             } else {
-                if ($this->IndexName && isset ( $this->tableInfo [$this->IndexName] ["Indexs"] ) && in_array ( $field, $this->tableInfo [$this->IndexName] ["Indexs"] )) {
-                    $this->hasSetIndexKeyCondition = true;
-                    if ($tmpKeyCond == "") {
-                        $tmpKeyCond = $cond;
-                    } else {
-                        $tmpKeyCond .= " " . $type . " " . $cond;
-                    }
+                if (! empty ( $tmpFilterCond )) {
+                    $tmpFilterCond .= " " . $type . " " . $cond;
                 } else {
-                    if (! empty ( $tmpFilterCond )) {
-                        $tmpFilterCond .= " " . $type . " " . $cond;
-                    } else {
-                        $tmpFilterCond = $cond;
-                    }
+                    $tmpFilterCond = $cond;
                 }
             }
         }

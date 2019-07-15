@@ -397,15 +397,50 @@ abstract class Select
     /**
      * 按优先级拆分查询语句,嵌套的or操作只能filter处理
      * @param string $expression 当前级查询条件
-     * @param string $type and 或or 父级与当前级的条件
      * @param SelectConds $parentCond 父级查询条件
      * @return SelectConds 生成新的查询条件
      */
-    protected function explorCond($expression, $type = self::COND_AND)
+    protected function explorCond($expression)
     {
         $expression = trim ( $expression );
         if ($expression) {
             $strupper = strtoupper ( $expression );
+            //TODO 按优先级，先按()拆分，再按and拆分,目前只支持一级查询，不支持嵌套
+            if (preg_match ( "/^\((?<subExp>[^)]*)\)\s*$/i", $expression, $match )) {
+                $leaveCond = new SelectConds();
+                $childCond =  $this->explorCond ( $match ["subExp"] );
+                $leaveCond->addChildCond($childCond);
+                return $leaveCond;
+            }else if(preg_match("/\(/", $expression)){
+                $left=$right=$op="";
+                //有多个括号，先按括号划分，目前只支持一级嵌套
+                if(preg_match("/(?<preleft>.*)(?<left>\([^\)]*\))\s+(?<op>AND|OR)\s+(?<right>.*)/i", $expression,$match)){
+                    $left = $match["preleft"].$match["left"];
+                    $op = $match["op"];
+                    $right = $match["right"];
+                }else if(preg_match("/(?<left>.*)\s+(?<op>AND|OR)\s+(?<right>\([^\)]*\))(?<postright>.*)/i", $expression,$match)){
+                    $left = $match["left"];
+                    $op = $match["op"];
+                    $right = $match["right"].$match["postright"];
+                }
+                $leftCond=$rightCond=null;
+                if($left){
+                    $leftCond = $this->explorCond ( $left, $op );
+                }
+                if($right){
+                    $rightCond = $this->explorCond ( $right, $op );
+                }
+                if($leftCond&&$rightCond){
+                    $leftCond->addNextCond($rightCond, $op);
+                    return  $leftCond;
+                }else if($leftCond){
+                    return $leftCond;
+                }else if($rightCond){
+                    return $rightCond;
+                }else{
+                    throw new DbException ( "unsupport condition：".$expression );
+                }
+            }
             $opPreg = array (
                 self::OP_EQ,
                 self::OP_GT,
@@ -420,14 +455,7 @@ abstract class Select
                 self::OP_NEQ
             );
             $opPreg = "(" . join ( ")|(", $opPreg ) . ")";
-            // 按优先级，先按()拆分，再按and拆分
-            if (preg_match ( "/^\((?<subExp>.*)\)\s*$/i", $expression, $match )) {
-            	//1.(a=b or b=c)
-            	//2.(a=b or b=c and (c=c or d=d)) and c=c
-            	//3. a=a and b=b and (c=c or d=d or (a=a and b=b))
-            	return  $this->explorCond ( $match ["subExp"], $type );
-            	
-            }else if (strpos ( $strupper, " " . self::COND_AND . " " ) > 0) {
+            if (strpos ( $strupper, " " . self::COND_AND . " " ) > 0) {
                 $pos = strpos ( $strupper, " " . self::COND_AND . " " );
                 $left = substr ( $expression, 0, $pos );
                 $leftCond = $this->explorCond ( $left, self::COND_AND );
@@ -435,7 +463,7 @@ abstract class Select
                 $right = substr ( $expression, $pos + 4 );
                 $rightCond = $this->explorCond ( $right, self::COND_AND );
                 if($leftCond&&$rightCond){
-                	$leftCond->addNextCond($rightCond, $type);
+                    $leftCond->addNextCond($rightCond, self::COND_AND);
                     return $leftCond;
                 }else {
                     return $leftCond?$leftCond:$rightCond;
@@ -448,7 +476,7 @@ abstract class Select
                 $right = substr ( $expression, $pos + 3 );
                 $rightCond = $this->explorCond ( $right, self::COND_OR );
                 if($leftCond&&$rightCond){
-                	$leftCond->addNextCond($rightCond, $type);
+                    $leftCond->addNextCond($rightCond, self::COND_OR);
                     return $leftCond;
                 }else {
                     return $leftCond?$leftCond:$rightCond;
