@@ -248,12 +248,16 @@ abstract class Select
     public function where($cond, $bind=null)
     {
     	//?号依次替换
+    	$count = count($this->binds);
     	if(preg_match("/\?/", $cond)){
     		if(!is_array($bind)){
     			$bind=[$bind];
     		}
     		foreach ($bind as $p){
-	    		$cond = preg_replace("/\?/", $this->adapter->quoteStr($p), $cond,1);
+    		    $bindKey = "VI".$count;
+    		    $cond = preg_replace("/\?/", ":".$bindKey.":", $cond,1);
+    		    $this->binds[$bindKey]=$this->adapter->quoteStr($p);
+    		    $count++;
     		}
     	}else if(!empty($bind)&&is_array($bind)){
             $this->binds = array_merge ( $this->binds, $bind );
@@ -481,7 +485,7 @@ abstract class Select
                 }else {
                     return $leftCond?$leftCond:$rightCond;
                 }
-            } elseif (preg_match ( "/^(?<field>[\w\d_]+)\s*(?<op>" . $opPreg . ")\s*(?<val>:?[\w\d_]+:?)?$/i", $expression, $match )) {
+            } elseif (preg_match ( "/^(?<field>[\w\d_]+)\s*(?<op>" . $opPreg . ")\s*(?<val>:?[\w\d_\.]+:?)?$/i", $expression, $match )) {
                 $value = isset ( $match ["val"] ) ? trim($match ["val"],":") : '';
                 $leaveCond = new SelectConds();
                 $leaveCond->setCond($match ["field"], $match ["op"],$value);

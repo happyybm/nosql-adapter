@@ -321,7 +321,7 @@ class ElasticSearch extends AbstractDb
         if (is_numeric ( $value )) {
             return $value;
         }
-        return "'" . addcslashes ( $value, "\000\n\r\\'\"\032" ) . "'";
+        return addcslashes ( $value, "\000\n\r\\'\"\032" );
     }
 
     /**
