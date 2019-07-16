@@ -7,9 +7,21 @@
 $ composer require nosql/adapter
 ```
 ## 目前支持的查询操作
-```php
-=,!=,>,<,>=,<=,IS NOT NULL,IS NULL,IN,NOT IN,LIKE 
-```
+| 操作 | ElasticSearch | DynamoDB |
+|:---:|:-------------:|:----------:|
+| = | 支持 | 支持 |
+| != | 支持 | 支持 |
+| > | 支持 | 支持 |
+| < | 支持 | 支持 |
+| >= | 支持 | 支持 |
+| <= | 支持 | 支持 |
+| IS NOT NULL | 支持 | 支持 |
+| IS NULL | 支持 | 支持 |
+| LIKE | 支持 | 支持 |
+| IN | 支持 | 不支持 |
+| NOT IN | 支持 | 不支持 |
+| BETWEEN | 不支持 | 不支持 |
+
 ## 目前支持的适配器
 ElasticSearch, DynamoDB
 

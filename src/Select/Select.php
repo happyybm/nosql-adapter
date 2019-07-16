@@ -311,24 +311,20 @@ abstract class Select
     {
         $alias = "in_" . $field;
         $cond = $field . " in :" . $alias . ":";
-//         $isStr = false; // 默认都按字符串处理
-//         foreach ( $values as $v ) {
-//             if (is_int ( $v ) || is_float ( $v ) || is_bool ( $v )) {
-//                 continue;
-//             }
-//             $isStr = true;
-//             break;
-//         }
-//         if ($isStr) {
-//             $bind = array (
-//                 $alias => join ( ",", $values ) 
-//             );
-//         } else {
-//             foreach ( $values as $k => $v ) {
-//                 $v = "'" . $this->getAdapter ()->quoteStr ( $v ) . "'";
-//                 $values [$k] = $v;
-//             }
-//         }
+        $this->binds[$alias] = $values;
+        $this->ands [] =  $cond ;
+        return $this;
+    }
+    /**
+     * not in 操作
+     * @param unknown $field
+     * @param unknown $values
+     * @return \Nosql\Select\Select
+     */
+    public function notInWhere($field, $values)
+    {
+        $alias = "notin_" . $field;
+        $cond = $field . " not in :" . $alias . ":";
         $this->binds[$alias] = $values;
         $this->ands [] =  $cond ;
         return $this;
