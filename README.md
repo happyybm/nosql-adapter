@@ -53,6 +53,6 @@ $select->where("filed2=?","value2")->where("field is not null");
 $select->orWhere("filed2=:v2:",["v2"=>"value2"]);
 //三个以上where时，orWhere会有优先级问题，可以使用()，例：
 $select->where("field=? and (field=? or field=?) ",array("value1","value2","value3"));
-$select->inWhere("field",$values)->orderBy(["filed"=>"desc","field2"=>"asc"]])->limit($page,$skip);
+$select->inWhere("field",$values)->orderBy(["filed"=>"desc","field2"=>"asc"]])->limit($pageSize,$skip);
 $rs = $db->fetchOne($select);
 ```
