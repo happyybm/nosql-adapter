@@ -5,7 +5,7 @@ namespace Nosql;
 use Nosql\DbException;
 use Nosql\Adapter\AbstractDb;
 use Nosql\Adapter\DynamoDb;
-use Nosql\Adapter\ElasticSearchDb;
+use Nosql\Adapter\ElasticSearch;
 
 /**
  * adapter的工厂类。用于生成adapter

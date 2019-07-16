@@ -62,6 +62,9 @@ class BoolTerm extends Term
             }
             $result ["minimum_should_match"] = 1;
         }
+        if(empty($result)){
+            return ["bool"=>new \stdClass()];
+        }
         return ["bool"=>$result];
     }
 }

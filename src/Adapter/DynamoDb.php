@@ -7,6 +7,7 @@ use Aws\DynamoDb\Exception\DynamoDbException;
 use Aws\DynamoDb\Marshaler;
 use Nosql\Select\DynamoSelect;
 use Nosql\Adapter\AbstractDb;
+use Nosql\Adapter\Rowset;
 
 /**
  * DynamoDb适配器
@@ -134,7 +135,7 @@ class DynamoDb extends AbstractDb
      *         "Items"=>array()
      *         )
      */
-    public function fetch($select, $limit = 0, $ExclusiveStartKey = null, $isThrowException = false)
+    protected function fetch($select, $limit = 0, $ExclusiveStartKey = null, $isThrowException = false)
     {
         $limit = intval ( $limit );
         $total = 0;
@@ -252,13 +253,10 @@ class DynamoDb extends AbstractDb
                     $result ["Count"] = $result ["Count"] + $restResult ["Count"];
                 }
                 unset ( $result ["Skip"] );
-                return $result;
+                return new Rowset($result["Items"], $result["Count"]);
             } else {
                 // 从跳过的结果中取倒数$limit条
-                return array (
-                    "Items" => array_slice ( $skipResult ['Items'], 0 - $limit ),
-                    "Count" => $skipCount 
-                );
+                return new Rowset(array_slice ( $skipResult ['Items'], 0 - $limit ), $skipCount);
             }
         } else {
             // 不skip数据,查询limit条数据
@@ -269,7 +267,7 @@ class DynamoDb extends AbstractDb
                 $result ["Count"] = $result ["Count"] + $restResult ["Count"];
             }
             unset ( $result ["Skip"] );
-            return $result;
+            return new Rowset($result["Items"], $result["Count"]);
         }
     }
 
