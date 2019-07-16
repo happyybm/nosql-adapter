@@ -281,17 +281,21 @@ abstract class Select
      */
     public function orWhere($cond, $bind)
     {
-    	//?号依次替换
-    	if(preg_match("/\?/", $cond)){
-    		if(!is_array($bind)){
-    			$bind=[$bind];
-    		}
-    		foreach ($bind as $p){
-	    		$cond = preg_replace("/\?/", $this->adapter->quoteStr($p), $cond,1);
-    		}
-    	}else if(!empty($bind)&&is_array($bind)){
-    		$this->binds = array_merge ( $this->binds, $bind );
-    	}
+        //?号依次替换
+        $count = count($this->binds);
+        if(preg_match("/\?/", $cond)){
+            if(!is_array($bind)){
+                $bind=[$bind];
+            }
+            foreach ($bind as $p){
+                $bindKey = "VI".$count;
+                $cond = preg_replace("/\?/", ":".$bindKey.":", $cond,1);
+                $this->binds[$bindKey]=$this->adapter->quoteStr($p);
+                $count++;
+            }
+        }else if(!empty($bind)&&is_array($bind)){
+            $this->binds = array_merge ( $this->binds, $bind );
+        }
     	$this->ors [] = $cond;
     	return $this;
     }
@@ -306,26 +310,27 @@ abstract class Select
     public function inWhere($field, $values)
     {
         $alias = "in_" . $field;
-        $cond = $field . " in (:" . $alias . ":)";
-        $isStr = false; // 默认都按字符串处理
-        foreach ( $values as $v ) {
-            if (is_int ( $v ) || is_float ( $v ) || is_bool ( $v )) {
-                continue;
-            }
-            $isStr = true;
-            break;
-        }
-        if ($isStr) {
-            $bind = array (
-                $alias => join ( ",", $values ) 
-            );
-        } else {
-            foreach ( $values as $k => $v ) {
-                $v = "'" . $this->getAdapter ()->quoteStr ( $v ) . "'";
-                $values [$k] = $v;
-            }
-        }
-        $this->ands [] = preg_replace ( "/:" . $alias . ":/", "(" . join ( ",", $values ) . ")", $cond );
+        $cond = $field . " in :" . $alias . ":";
+//         $isStr = false; // 默认都按字符串处理
+//         foreach ( $values as $v ) {
+//             if (is_int ( $v ) || is_float ( $v ) || is_bool ( $v )) {
+//                 continue;
+//             }
+//             $isStr = true;
+//             break;
+//         }
+//         if ($isStr) {
+//             $bind = array (
+//                 $alias => join ( ",", $values ) 
+//             );
+//         } else {
+//             foreach ( $values as $k => $v ) {
+//                 $v = "'" . $this->getAdapter ()->quoteStr ( $v ) . "'";
+//                 $values [$k] = $v;
+//             }
+//         }
+        $this->binds[$alias] = $values;
+        $this->ands [] =  $cond ;
         return $this;
     }
 

@@ -57,7 +57,7 @@ class ElasticSearchSelect extends Select
         // 分析逻辑处理
         $boolTerm = new BoolTerm();
         while ( ! empty ( $lastCond ) ) {
-            $this->processCond ( $lastCond, $boolTerm );
+            $this->processCond ( $lastCond, $boolTerm,$lastCond->nextCondType );
             $lastCond = $lastCond->nextCond;
         }
         // 设置表名
