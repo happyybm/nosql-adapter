@@ -42,6 +42,15 @@ class Rowset implements \SeekableIterator, \Countable
     {
         return $this->count;
     }
+    
+    /**
+     * 返回结果数组
+     * @return array
+     */
+    public function getData()
+    {
+        return $this->data;
+    }
 
     /**
      *
