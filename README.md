@@ -1,8 +1,10 @@
 # sql-nosql
+
 >非关系型数据库结构化查询方式
 
 ## 安装
 * 通过composer
+
 ```bash
 $ composer require nosql/adapter
 ```
