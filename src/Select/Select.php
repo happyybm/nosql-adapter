@@ -35,6 +35,12 @@ abstract class Select
     protected  $query =[];
     
     /**
+     * 子查询占位替换
+     * @var array
+     */
+    protected  $subQueryPh = [];
+    
+    /**
      * 查询条件
      * @var SelectConds
      */
@@ -413,41 +419,17 @@ abstract class Select
         $expression = trim ( $expression );
         if ($expression) {
             $strupper = strtoupper ( $expression );
-            //TODO 按优先级，先按()拆分，再按and拆分,目前只支持一级查询，不支持嵌套
-            if (preg_match ( "/^\((?<subExp>[^)]*)\)\s*$/i", $expression, $match )) {
-                $leaveCond = new SelectConds();
-                $childCond =  $this->explorCond ( $match ["subExp"] );
-                $leaveCond->addChildCond($childCond);
-                return $leaveCond;
-            }else if(preg_match("/\(/", $expression)){
-                $left=$right=$op="";
-                //有多个括号，先按括号划分，目前只支持一级嵌套
-                if(preg_match("/(?<preleft>.*)(?<left>\([^\)]*\))\s+(?<op>AND|OR)\s+(?<right>.*)/i", $expression,$match)){
-                    $left = $match["preleft"].$match["left"];
-                    $op = $match["op"];
-                    $right = $match["right"];
-                }else if(preg_match("/(?<left>.*)\s+(?<op>AND|OR)\s+(?<right>\([^\)]*\))(?<postright>.*)/i", $expression,$match)){
-                    $left = $match["left"];
-                    $op = $match["op"];
-                    $right = $match["right"].$match["postright"];
+            //先按括号拆分
+            if(preg_match_all("/(?<sub>\([^\(\)]+\))/i", $expression, $matchs)){
+                //先把括号替换掉再拆分
+                $count = count($this->subQueryPh);
+                foreach ($matchs["sub"] as $idx=>$match){
+                    $key = ":PH".$count.":";
+                    $this->subQueryPh[$key] = $match;
+                    $expression = str_replace($match, $key, $expression);
+                    $count++;
                 }
-                $leftCond=$rightCond=null;
-                if($left){
-                    $leftCond = $this->explorCond ( $left, $op );
-                }
-                if($right){
-                    $rightCond = $this->explorCond ( $right, $op );
-                }
-                if($leftCond&&$rightCond){
-                    $leftCond->addNextCond($rightCond, $op);
-                    return  $leftCond;
-                }else if($leftCond){
-                    return $leftCond;
-                }else if($rightCond){
-                    return $rightCond;
-                }else{
-                    throw new DbException ( "unsupport condition：".$expression );
-                }
+                return $this->explorCond($expression);
             }
             $opPreg = array (
                 self::OP_EQ,
@@ -494,6 +476,13 @@ abstract class Select
                 $value = isset ( $match ["val"] ) ? trim($match ["val"],":") : '';
                 $leaveCond = new SelectConds();
                 $leaveCond->setCond($match ["field"], $match ["op"],$value);
+                return $leaveCond;
+            }else if(key_exists($expression, $this->subQueryPh)){
+                //去掉最外层括号
+                $expression = trim($this->subQueryPh[$expression],"()");
+                $leaveCond = new SelectConds();
+                $childCond = $this->explorCond($expression);
+                $leaveCond->addChildCond($childCond);
                 return $leaveCond;
             } else {
                 //不支持的查询条件
