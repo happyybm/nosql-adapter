@@ -137,7 +137,6 @@ class ElasticSearchSelect extends Select
                 $term = new ExistsTerm ( $field );
                 $bt->addMustNot ( $term );
                 return $bt;
-                break;
             case self::OP_LIKE :
                 if (preg_match ( "/%/", $value )) {
                     $value = str_replace ( "%", "*", $value );
@@ -145,6 +144,16 @@ class ElasticSearchSelect extends Select
                 } else {
                     return new MatchTerm ( $field, $value );
                 }
+            case self::OP_NOT_LIKE :
+                if (preg_match ( "/%/", $value )) {
+                    $value = str_replace ( "%", "*", $value );
+                    $term = new WildcardTerm ( $field, $value );
+                } else {
+                    $term = new MatchTerm ( $field, $value );
+                }
+                $bt = new BoolTerm ();
+                $bt->addMustNot ( $term );
+                return $bt;
         }
     }
 

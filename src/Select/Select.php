@@ -23,6 +23,7 @@ abstract class Select
     const OP_IN = "IN";
     const OP_NOT_IN = "NOT IN";
     const OP_LIKE = "LIKE";
+    const OP_NOT_LIKE = "NOT LIKE";
     const OP_IS_NULL = "IS NULL";
     const OP_IS_NOT_NULL = "IS NOT NULL";
 //     const OP_BETWEEN = "BETWEEN"; //暂不支持，
@@ -309,7 +310,8 @@ abstract class Select
      */
     public function inWhere($field, $values)
     {
-        $alias = "in_" . $field;
+        $count = count($this->binds);
+        $alias = "VI".$count;
         $cond = $field . " in :" . $alias . ":";
         $this->binds[$alias] = $values;
         $this->ands [] =  $cond ;
@@ -323,7 +325,8 @@ abstract class Select
      */
     public function notInWhere($field, $values)
     {
-        $alias = "notin_" . $field;
+        $count = count($this->binds);
+        $alias = "VI".$count;
         $cond = $field . " not in :" . $alias . ":";
         $this->binds[$alias] = $values;
         $this->ands [] =  $cond ;
@@ -455,6 +458,7 @@ abstract class Select
                 self::OP_IS_NOT_NULL,
                 self::OP_IS_NULL,
                 self::OP_LIKE,
+                self::OP_NOT_LIKE,
                 self::OP_LT,
                 self::OP_LTEQ,
                 self::OP_NEQ
