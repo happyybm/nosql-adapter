@@ -158,7 +158,7 @@ class ElasticSearchSelect extends Select
     }
 
     /**
-     * 转批条件
+     * 转化条件
      *
      * @param SelectConds $cond 查询条件
      * @param BoolTerm $boolTerm 存放条件的boolQuery数组
@@ -180,8 +180,10 @@ class ElasticSearchSelect extends Select
         if ($cond->childCond) {
             $lastCond = $cond->childCond;
             $childTerm = new BoolTerm();
+            $type = self::COND_AND;
             while ( ! empty ( $lastCond ) ) {
-                $this->processCond ( $lastCond, $childTerm,$lastCond->nextCondType );
+                $this->processCond ( $lastCond, $childTerm,$type );
+                $type = $lastCond->nextCondType;
                 $lastCond = $lastCond->nextCond;
             }
             if ($type == self::COND_AND) {

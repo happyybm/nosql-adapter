@@ -153,10 +153,12 @@ class DynamoSelect extends Select
             }
         }
         $lastCond = $this->selectConds;
+        $type = Select::COND_AND;
         // 分析逻辑处理
         while ( ! empty ( $lastCond ) ) {
             $cons = $this->processCond ( $lastCond);
-            $this->setKeyFilterCond ( $cons, $lastCond->nextCondType);
+            $this->setKeyFilterCond ( $cons, $type);
+            $type = $lastCond->nextCondType;
             $lastCond = $lastCond->nextCond;
         }
         
@@ -249,7 +251,7 @@ class DynamoSelect extends Select
 
     /**
      * 处理条件
-     * 
+     * 注：不支持嵌套查询
      * @param SelectConds $cond            
      * @param string $type            
      * @return array [
@@ -259,32 +261,34 @@ class DynamoSelect extends Select
      */
     private function processCond($cond)
     {
-        $type = $cond->nextCondType;
         $tmpKeyCond = "";
         $tmpFilterCond = "";
-        $field = $cond->field;
-        // 把条件语句中的字段转义
-        $this->ExpressionAttributeNames [self::getExchangeField ( $field )] = $field;
-        $cond = $this->getExchangeCond ( self::getExchangeField ( $field ), $cond->op, $cond->value );
-        if (! $this->IndexName && in_array ( $field, $this->tableInfo ["Keys"] )) {
-            if ($tmpKeyCond == "") {
-                $tmpKeyCond = $cond;
-            } else {
-                $tmpKeyCond .= " " . $type . " " . $cond;
-            }
-        } else {
-            if ($this->IndexName && isset ( $this->tableInfo [$this->IndexName] ["Indexs"] ) && in_array ( $field, $this->tableInfo [$this->IndexName] ["Indexs"] )) {
-                $this->hasSetIndexKeyCondition = true;
+        if($cond->field){
+            $type = $cond->nextCondType;
+            $field = $cond->field;
+            // 把条件语句中的字段转义
+            $this->ExpressionAttributeNames [self::getExchangeField ( $field )] = $field;
+            $cond = $this->getExchangeCond ( self::getExchangeField ( $field ), $cond->op, $cond->value );
+            if (! $this->IndexName && in_array ( $field, $this->tableInfo ["Keys"] )) {
                 if ($tmpKeyCond == "") {
                     $tmpKeyCond = $cond;
                 } else {
                     $tmpKeyCond .= " " . $type . " " . $cond;
                 }
             } else {
-                if (! empty ( $tmpFilterCond )) {
-                    $tmpFilterCond .= " " . $type . " " . $cond;
+                if ($this->IndexName && isset ( $this->tableInfo [$this->IndexName] ["Indexs"] ) && in_array ( $field, $this->tableInfo [$this->IndexName] ["Indexs"] )) {
+                    $this->hasSetIndexKeyCondition = true;
+                    if ($tmpKeyCond == "") {
+                        $tmpKeyCond = $cond;
+                    } else {
+                        $tmpKeyCond .= " " . $type . " " . $cond;
+                    }
                 } else {
-                    $tmpFilterCond = $cond;
+                    if (! empty ( $tmpFilterCond )) {
+                        $tmpFilterCond .= " " . $type . " " . $cond;
+                    } else {
+                        $tmpFilterCond = $cond;
+                    }
                 }
             }
         }
@@ -292,33 +296,6 @@ class DynamoSelect extends Select
             "keyCond" => $tmpKeyCond,
             "filterCond" => $tmpFilterCond 
         ];
-        
-        // $field = $cond ["Field"];
-        // // 把条件语句中的字段转义
-        // $this->ExpressionAttributeNames [self::getExchangeField ( $field )] = $field;
-        // $cond = $this->getExchangeCond ( self::getExchangeField ( $field ), $cond ["Op"], $cond ["Value"] );
-        // if (! $this->IndexName && in_array ( $field, $this->tableInfo ["Keys"] )) {
-        // if ($this->KeyConditionExpression == "") {
-        // $this->KeyConditionExpression = $cond;
-        // } else {
-        // $this->KeyConditionExpression .= " ".$type." " . $cond;
-        // }
-        // } else {
-        // if ($this->IndexName && isset ( $this->tableInfo [$this->IndexName] ["Indexs"] ) && in_array ( $field, $this->tableInfo [$this->IndexName] ["Indexs"] )) {
-        // $this->hasSetIndexKeyCondition = true;
-        // if ($this->KeyConditionExpression == "") {
-        // $this->KeyConditionExpression = $cond;
-        // } else {
-        // $this->KeyConditionExpression .= " ".$type." " . $cond;
-        // }
-        // } else {
-        // if (! empty ( $this->FilterExpression )) {
-        // $this->FilterExpression[] = " ".$type." " . $cond;
-        // } else {
-        // $this->FilterExpression[]= $cond;
-        // }
-        // }
-        // }
     }
 
     /**
