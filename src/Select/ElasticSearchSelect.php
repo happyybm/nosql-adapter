@@ -158,7 +158,7 @@ class ElasticSearchSelect extends Select
     }
 
     /**
-     * 转批条件
+     * 转化条件
      *
      * @param SelectConds $cond 查询条件
      * @param BoolTerm $boolTerm 存放条件的boolQuery数组

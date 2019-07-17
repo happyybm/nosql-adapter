@@ -18,6 +18,8 @@ class Rowset implements \SeekableIterator, \Countable
      * 
      * @var int
      */
+    protected $total;
+    
     protected $count;
     /**
      * 结果数组索引
@@ -29,7 +31,8 @@ class Rowset implements \SeekableIterator, \Countable
     public function __construct($data, $count)
     {
         $this->data = $data;
-        $this->count = $count;
+        $this->total = $count;
+        $this->count = count($this->data);
     }
 
     /**
@@ -41,6 +44,14 @@ class Rowset implements \SeekableIterator, \Countable
     public function count()
     {
         return $this->count;
+    }
+    
+    /**
+     * 返回总数
+     * @return number
+     */
+    public function getTotal(){
+        return $this->total;
     }
     
     /**

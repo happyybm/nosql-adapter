@@ -129,6 +129,7 @@ class ElasticSearch extends AbstractDb
      *
      * @param ElasticSearchSelect $select            
      * @throws Exception
+     * @return Rowset
      */
     public function fetchAll($select)
     {
