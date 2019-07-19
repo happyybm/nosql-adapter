@@ -130,4 +130,12 @@ class Rowset implements \SeekableIterator, \Countable
         $this->pointer = 0;
         return $this;
     }
+    
+    /**
+     * 
+     * @return array
+     */
+    public function toArray(){
+        return $this->data;
+    }
 }
