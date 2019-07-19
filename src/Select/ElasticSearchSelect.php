@@ -180,10 +180,8 @@ class ElasticSearchSelect extends Select
         if ($cond->childCond) {
             $lastCond = $cond->childCond;
             $childTerm = new BoolTerm();
-            $type = self::COND_AND;
             while ( ! empty ( $lastCond ) ) {
-                $this->processCond ( $lastCond, $childTerm,$type );
-                $type = $lastCond->nextCondType;
+                $this->processCond ( $lastCond, $childTerm,$lastCond->nextCondType );
                 $lastCond = $lastCond->nextCond;
             }
             if ($type == self::COND_AND) {
