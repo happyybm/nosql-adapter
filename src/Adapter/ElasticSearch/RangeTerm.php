@@ -1,7 +1,6 @@
 <?php
 namespace Nosql\Adapter\ElasticSearch;
 
-use Nosql\Adapter\ElasticSearch\Term;
 /**
  * 区间查询
  * @author roy

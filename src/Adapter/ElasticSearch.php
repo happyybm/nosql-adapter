@@ -2,8 +2,6 @@
 namespace Nosql\Adapter;
 
 use Nosql\Select\ElasticSearchSelect;
-use Nosql\Adapter\AbstractDb;
-use Nosql\Adapter\Rowset;
 use Elasticsearch\ClientBuilder;
 use Elasticsearch\Client;
 use Monolog\Logger;
@@ -117,7 +115,7 @@ class ElasticSearch extends AbstractDb
      * @param string $keyValue
      *            主键id
      * @return array 返回的数据
-     * @throws Exception
+     * @throws \Exception
      */
     public function fetchOne($indexName, $keyValue)
     {
@@ -128,8 +126,8 @@ class ElasticSearch extends AbstractDb
      * 根据查询条件返回所有记录
      *
      * @param ElasticSearchSelect $select            
-     * @throws Exception
      * @return Rowset
+     * @throws \Exception
      */
     public function fetchAll($select)
     {
@@ -144,7 +142,7 @@ class ElasticSearch extends AbstractDb
      *            索引名
      * @param array $data
      *            要保存或更新的item
-     * @throws Exception
+     * @throws \Exception
      */
     public function save($indexName, $data)
     {
@@ -161,7 +159,7 @@ class ElasticSearch extends AbstractDb
      * @param array $ids
      *            主键，如果是复合主键，要把所有主键都带上，主键内容是不能更新的，即使在data参数里设置了。
      * @return boolean
-     * @throws Exception
+     * @throws \Exception
      */
     public function update($indexName, $data, $ids)
     {
@@ -175,7 +173,7 @@ class ElasticSearch extends AbstractDb
      *            索引名
      * @param array $ids
      *            主键，如果是复合主键，要把所有主键都带上，主键内容是不能更新的，即使在data参数里设置了。
-     * @throws Exception
+     * @throws \Exception
      */
     public function delete($indexName, $ids)
     {
@@ -187,7 +185,7 @@ class ElasticSearch extends AbstractDb
      *
      * @param string $indexName            
      * @param array $keyValues            
-     * @throws Exception
+     * @throws \Exception
      */
     private function deleteItem($indexName, $keyValues)
     {
@@ -215,7 +213,7 @@ class ElasticSearch extends AbstractDb
      * @param array $keyValue
      *            直接指定主键查询的条件
      * @return array NULL
-     * @throws Exception
+     * @throws \Exception
      */
     private function getItem($indexName, $keyValue)
     {
@@ -245,7 +243,7 @@ class ElasticSearch extends AbstractDb
      *            要保存的item
      * @param string $keyName
      *            主键名称
-     * @throws Exception
+     * @throws \Exception
      */
     private function putItem($indexName, $data)
     {
@@ -267,7 +265,7 @@ class ElasticSearch extends AbstractDb
      *
      * @param array $params            
      * @return callable|array
-     * @throws Exception
+     * @throws \Exception
      */
     private function search($params)
     {
@@ -290,7 +288,7 @@ class ElasticSearch extends AbstractDb
      *            要更新的属性
      * @param array $keys
      *            指定主键id
-     * @throws Exception
+     * @throws \Exception
      */
     private function updateItem($indexName, $data, $keys)
     {

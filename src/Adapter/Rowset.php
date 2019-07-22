@@ -39,7 +39,7 @@ class Rowset implements \SeekableIterator, \Countable
      *
      * {@inheritdoc}
      *
-     * @see Countable::count()
+     * @see \Countable::count()
      */
     public function count()
     {
@@ -67,7 +67,7 @@ class Rowset implements \SeekableIterator, \Countable
      *
      * {@inheritdoc}
      *
-     * @see SeekableIterator::seek()
+     * @see \SeekableIterator::seek()
      */
     public function seek($position)
     {
@@ -79,7 +79,7 @@ class Rowset implements \SeekableIterator, \Countable
      *
      * {@inheritdoc}
      *
-     * @see SeekableIterator::current()
+     * @see \SeekableIterator::current()
      */
     public function current()
     {
@@ -90,7 +90,7 @@ class Rowset implements \SeekableIterator, \Countable
      *
      * {@inheritdoc}
      *
-     * @see SeekableIterator::next()
+     * @see \SeekableIterator::next()
      */
     public function next()
     {
@@ -101,7 +101,7 @@ class Rowset implements \SeekableIterator, \Countable
      *
      * {@inheritdoc}
      *
-     * @see SeekableIterator::key()
+     * @see \SeekableIterator::key()
      */
     public function key()
     {
@@ -112,7 +112,7 @@ class Rowset implements \SeekableIterator, \Countable
      *
      * {@inheritdoc}
      *
-     * @see SeekableIterator::valid()
+     * @see \SeekableIterator::valid()
      */
     public function valid()
     {
@@ -123,7 +123,7 @@ class Rowset implements \SeekableIterator, \Countable
      *
      * {@inheritdoc}
      *
-     * @see SeekableIterator::rewind()
+     * @see \SeekableIterator::rewind()
      */
     public function rewind()
     {

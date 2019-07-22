@@ -2,7 +2,6 @@
 namespace Nosql\Select;
 
 use Nosql\DbException;
-use Nosql\Select\SelectConds;
 use Nosql\Adapter\AbstractDb;
 
 /**
@@ -134,7 +133,7 @@ abstract class Select
 
     /**
      *
-     * @return the $errors
+     * @return $errors
      */
     public function getErrors()
     {
@@ -143,7 +142,7 @@ abstract class Select
 
     /**
      *
-     * @return the $binds
+     * @return $binds
      */
     public function getBinds()
     {
@@ -152,7 +151,7 @@ abstract class Select
 
     /**
      *
-     * @return the $orders
+     * @return $orders
      */
     public function getOrders()
     {
@@ -161,7 +160,7 @@ abstract class Select
 
     /**
      *
-     * @return the $limit
+     * @return $limit
      */
     public function getLimit()
     {
@@ -170,7 +169,7 @@ abstract class Select
 
     /**
      *
-     * @return the $skip
+     * @return $skip
      */
     public function getSkip()
     {
@@ -189,7 +188,7 @@ abstract class Select
 
     /**
      *
-     * @return the $colums
+     * @return $colums
      */
     public function getColums()
     {
@@ -198,7 +197,7 @@ abstract class Select
 
     /**
      *
-     * @return the $adapter
+     * @return $adapter
      */
     public function getAdapter()
     {
@@ -325,8 +324,8 @@ abstract class Select
     }
     /**
      * not in 操作
-     * @param unknown $field
-     * @param unknown $values
+     * @param string $field
+     * @param array $values
      * @return \Nosql\Select\Select
      */
     public function notInWhere($field, $values)
@@ -370,7 +369,7 @@ abstract class Select
     /**
      * 附加错误信息
      * 
-     * @param unknown $msg            
+     * @param string $msg            
      */
     public function error($msg)
     {
@@ -420,10 +419,11 @@ abstract class Select
         if ($expression) {
             $strupper = strtoupper ( $expression );
             //先按括号拆分
+            $matchs=[];
             if(preg_match_all("/(?<sub>\([^\(\)]+\))/i", $expression, $matchs)){
                 //先把括号替换掉再拆分
                 $count = count($this->subQueryPh);
-                foreach ($matchs["sub"] as $idx=>$match){
+                foreach ($matchs["sub"] as $match){
                     $key = ":PH".$count.":";
                     $this->subQueryPh[$key] = $match;
                     $expression = str_replace($match, $key, $expression);

@@ -1,7 +1,6 @@
 <?php
 namespace Nosql\Adapter\ElasticSearch;
 
-use Nosql\Adapter\ElasticSearch\Term;
 /**
  * 存在匹配
  * @author roy

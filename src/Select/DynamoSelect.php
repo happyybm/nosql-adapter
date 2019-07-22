@@ -1,7 +1,6 @@
 <?php
 namespace Nosql\Select;
 
-use Nosql\Select\Select;
 use Aws\DynamoDb\Marshaler;
 use Nosql\DbException;
 
@@ -63,7 +62,7 @@ class DynamoSelect extends Select
 
     /**
      *
-     * @return the $ExclusiveStartKey
+     * @return $ExclusiveStartKey
      */
     public function getExclusiveStartKey()
     {
@@ -72,7 +71,7 @@ class DynamoSelect extends Select
 
     /**
      *
-     * @param field_type $ExclusiveStartKey            
+     * @param  $ExclusiveStartKey            
      */
     public function setExclusiveStartKey($ExclusiveStartKey)
     {
@@ -177,7 +176,7 @@ class DynamoSelect extends Select
             if (count ( $this->tableInfo ["Keys"] ) > 1) {
                 // 只能处理正序，倒序，且在有排序键的前提下
                 $order = "asc";
-                foreach ( $this->orders as $file => $o ) {
+                foreach ( $this->orders as  $o ) {
                     $order = strtolower ( $o );
                     break;
                 }
@@ -215,6 +214,7 @@ class DynamoSelect extends Select
             $params ["FilterExpression"] = join ( " ", $this->FilterExpression );
         }
         // 指定查询类型
+        $result = [];
         if (empty ( $this->KeyConditionExpression )) {
             $result ["Method"] = self::$METHOD_SCAN;
         } else {
@@ -228,8 +228,8 @@ class DynamoSelect extends Select
     /**
      * 设置查询条件
      * 
-     * @param unknown $keyFilterCond            
-     * @param unknown $type            
+     * @param string $keyFilterCond            
+     * @param string $type            
      */
     private function setKeyFilterCond($keyFilterCond, $type)
     {

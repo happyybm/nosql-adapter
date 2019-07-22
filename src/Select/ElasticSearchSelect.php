@@ -1,7 +1,6 @@
 <?php
 namespace Nosql\Select;
 
-use Nosql\Select\Select;
 use Nosql\Adapter\ElasticSearch\MatchTerm;
 use Nosql\Adapter\ElasticSearch\ExistsTerm;
 use Nosql\Adapter\ElasticSearch\BoolTerm;
@@ -90,7 +89,7 @@ class ElasticSearchSelect extends Select
         if ($this->limit > 0) {
             $params ["size"] = $this->limit;
         }
-        $result ["Params"] = $params;
+        $result = ["Params"=> $params];
         return $result;
     }
 

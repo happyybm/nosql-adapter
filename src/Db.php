@@ -20,7 +20,7 @@ class Db {
 	 * @param array  $config
 	 *        	链接配置信息
 	 * @throws DbException
-	 * @return Ambigous 
+	 * @return mixed 
 	 */
 	public static function factory($adapter, $config = array()) {
 		/*

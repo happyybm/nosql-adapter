@@ -1,8 +1,6 @@
 <?php
 namespace Nosql\Select;
 
-use Nosql\Select\Select;
-
 /**
  * 查询条件对象
  *

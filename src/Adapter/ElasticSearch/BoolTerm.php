@@ -1,6 +1,5 @@
 <?php
 namespace Nosql\Adapter\ElasticSearch;
-use Nosql\Adapter\ElasticSearch\Term;
 /**
  * bool查询
  *

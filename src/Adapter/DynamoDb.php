@@ -6,8 +6,6 @@ use Aws\Credentials\Credentials;
 use Aws\DynamoDb\Exception\DynamoDbException;
 use Aws\DynamoDb\Marshaler;
 use Nosql\Select\DynamoSelect;
-use Nosql\Adapter\AbstractDb;
-use Nosql\Adapter\Rowset;
 
 /**
  * DynamoDb适配器
@@ -383,7 +381,7 @@ class DynamoDb extends AbstractDb
         $RequestItem = array ();
         $params = array ();
         $marshaler = new Marshaler ();
-        foreach ( $datas as $k => $item ) {
+        foreach ( $datas as $item ) {
             $item = $marshaler->marshalItem ( $item );
             $data = array ();
             if ($type == self::BATCH_REQUEST_PUT) {
@@ -483,6 +481,7 @@ class DynamoDb extends AbstractDb
     {
         $this->connect ();
         $mash = new Marshaler ();
+        $params = [];
         $params ["Item"] = $mash->marshalItem ( $data );
         $params ["TableName"] = $tableName;
         $rs = $this->client->putItem ( $params );
@@ -503,7 +502,7 @@ class DynamoDb extends AbstractDb
      *         "Count"=>1,//返回的数据条目
      *         "ScannedCount"=>1,//扫描的条数，用于判断查询的效率及优化，但ScannedCount跟Count差距很大时，说明效率低下。
      *         )
-     * @throws Exception
+     * @throws \Exception
      */
     private function query($params)
     {
@@ -575,6 +574,7 @@ class DynamoDb extends AbstractDb
     private function updateItem($tableName, $data, $keys)
     {
         $mash = new Marshaler ();
+        $params=[];
         $params ["Key"] = $mash->marshalItem ( $keys );
         $params ["TableName"] = $tableName;
         $updateExpression = array ();
